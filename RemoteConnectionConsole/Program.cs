@@ -30,6 +30,10 @@ public class Program {
             [Value(1, MetaName = "instance-file", Required = true, HelpText = "Instance data file")]
             public string? InputFile { get; set; }
         }
+        /*
+        [Option('u', "use", HelpText = "Temporarily use an instance")]
+        public string? Using { get; set; }
+         */
     }
 
     public static int Main(String[] args)
@@ -165,8 +169,16 @@ public class Program {
 
     static int HandleUse(Options.UseOptions options)
     {
-        LoadInstance(options.InputFile!);
-        File.WriteAllText(".rcc-used", options.InputFile);
+        if ((options.InputFile! == "." || options.InputFile! == "/" || options.InputFile! == "-") && File.Exists(".rcc-used"))
+        {
+            File.Delete(".rcc-used");
+            Console.WriteLine("Using: None");
+        } else
+        {
+            LoadInstance(options.InputFile!);
+            File.WriteAllText(".rcc-used", Path.GetFullPath(options.InputFile!));
+            Console.WriteLine($"Using: {options.InputFile}");
+        }
         return 0;
     }
 
