@@ -40,8 +40,8 @@ public class Program {
             [Option('o', "output", HelpText = "Local path to write to")]
             public string? Output { get; set; }
             
-            [Option('p', "progress", HelpText = "Whether to show progress bar or not")]
-            public bool? Progress { get; set; }
+            [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
+            public int Progress { get; set; }
             
             [Option('u', "use", HelpText = "Temporarily use an instance")]
             public string? Using { get; set; }
@@ -207,7 +207,7 @@ public class Program {
         var sftpDriver = new SftpDriver(instanceData!.Value);
         sftpDriver.Connect();
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
-        sftpDriver.Pull(options.InputFile!, outputPath);
+        sftpDriver.Pull(options.InputFile!, outputPath, options.Progress == 0);
         return 0;
     }
 

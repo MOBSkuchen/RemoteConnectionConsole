@@ -74,20 +74,21 @@ public class SftpDriver
 
     public bool Exists(string remotePath) => _sftpClient.Exists(remotePath);
 
-    public void Pull(string remotePath, string localPath)
+    public void Pull(string remotePath, string localPath, bool showProgress)
     {
         if (!Exists(remotePath)) Program.Error(8, "Remote path does not exist");
         int totalSize = (int) _sftpClient.GetAttributes(remotePath).Size;
         Stream localFileStream = File.OpenWrite(localPath);
-        _sftpClient.DownloadFile(remotePath, localFileStream, obj =>
-        {
-            ProgressBar((int) obj, totalSize);
-        });
+        if (showProgress) _sftpClient.DownloadFile(remotePath, localFileStream, obj => { ProgressBar((int) obj, totalSize); });
+        else _sftpClient.DownloadFile(remotePath, localFileStream);
         localFileStream.Flush();
         localFileStream.Close();
         localFileStream.Dispose();
-        Console.CursorLeft = 0;
-        Console.Write("\n");
+        if (showProgress)
+        {
+            Console.CursorLeft = 0;
+            Console.Write("\n");
+        }
         Console.WriteLine($"Pulled {remotePath} to {localPath}");
     }
 
