@@ -8,7 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="CommandLineParser" Version="2.9.1" />
       <PackageReference Include="Core.Renci.SshNet" Version="2021.10.2" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+      <PackageReference Include="YamlDotNet" Version="16.1.3" />
     </ItemGroup>
 
 </Project>
