@@ -154,4 +154,11 @@ public class SftpDriver
         }
     }
 
+    public void Delete(string remotePath)
+    {
+        if (!Exists(remotePath)) Program.Error(8, "Remote path does not exist");
+        _sftpClient.Delete(remotePath);
+        Console.WriteLine($"Deleted {remotePath}");
+    }
+
 }

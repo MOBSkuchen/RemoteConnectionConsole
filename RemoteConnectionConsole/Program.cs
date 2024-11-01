@@ -72,9 +72,6 @@ public class Program {
             [Value(2, MetaName = "new-file", Required = true, HelpText = "New remote file")]
             public string? TargetFile { get; set; }
             
-            [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
-            public int Progress { get; set; }
-            
             [Option('u', "use", HelpText = "Temporarily use an instance")]
             public string? Using { get; set; }
         }
@@ -95,24 +92,19 @@ public class Program {
             public string? Using { get; set; }
         }
         
-        // [Verb("del", HelpText = "Delete remote file")]
-        // public class DeleteOptions
-        // {
-        //     [Value(1, MetaName = "remote-file", Required = true, HelpText = "Remote file")]
-        //     public string? InputFile { get; set; }
-        //     
-        //     [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
-        //     public int Progress { get; set; }
-        //     
-        //     [Option('u', "use", HelpText = "Temporarily use an instance")]
-        //     public string? Using { get; set; }
-        // }
+        [Verb("del", HelpText = "Delete remote file")]
+        public class DeleteOptions
+        {
+            [Value(1, MetaName = "remote-file", Required = true, HelpText = "Remote file")]
+            public string? InputFile { get; set; }
+            
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+        }
         
         [Verb("list", HelpText = "List CWD")]
         public class ListOptions
         {
-            [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
-            public int Progress { get; set; }
             
             [Option('u', "use", HelpText = "Temporarily use an instance")]
             public string? Using { get; set; }
@@ -124,9 +116,6 @@ public class Program {
         //     [Value(1, MetaName = "path", Required = true, HelpText = "Path")]
         //     public string? InputFile { get; set; }
         //     
-        //     [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
-        //     public int Progress { get; set; }
-        //     
         //     [Option('u', "use", HelpText = "Temporarily use an instance")]
         //     public string? Using { get; set; }
         // }
@@ -137,7 +126,8 @@ public class Program {
         {
             settings.HelpWriter = null;
         });
-        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions>(args);
+        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, 
+            Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions, Options.DeleteOptions>(args);
         return res.MapResult(
             (Options.OpenOptions options) => HandleOpen(options),
             (Options.UseOptions options) => HandleUse(options),
@@ -146,6 +136,7 @@ public class Program {
             (Options.MoveOptions options) => HandleMove(options),
             (Options.CopyOptions options) => HandleCopy(options),
             (Options.ListOptions options) => HandleList(options),
+            (Options.DeleteOptions options) => HandleDelete(options),
             HandleParseError);
     }
     
@@ -314,7 +305,7 @@ public class Program {
         var instanceData = LoadCurrentlyUsed(options.Using);
         var sftpDriver = new SftpDriver(instanceData!.Value);
         sftpDriver.Connect();
-        sftpDriver.Move(options.InputFile!, options.TargetFile!, false, options.Progress == 0);
+        sftpDriver.Move(options.InputFile!, options.TargetFile!, false, false);
         return 0;
     }
     
@@ -333,6 +324,15 @@ public class Program {
         var sftpDriver = new SftpDriver(instanceData!.Value);
         sftpDriver.Connect();
         sftpDriver.List();
+        return 0;
+    }
+    
+    static int HandleDelete(Options.DeleteOptions options)
+    {
+        var instanceData = LoadCurrentlyUsed(options.Using);
+        var sftpDriver = new SftpDriver(instanceData!.Value);
+        sftpDriver.Connect();
+        sftpDriver.Delete(options.InputFile!);
         return 0;
     }
 
