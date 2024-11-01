@@ -11,9 +11,6 @@ public class Program {
         [Verb("open", HelpText = "Open Remote Console Session")]
         public class OpenOptions
         {
-            [Value(1, MetaName = "instance-file", Required = true, HelpText = "Instance data file")]
-            public string? InputFile { get; set; }
-            
             [Option("redirect-stdin", Required = false, HelpText = "Redirect stdin to this file")]
             public string? RedirectStdIn { get; set; }
             
@@ -22,6 +19,12 @@ public class Program {
             
             [Option("redirect-stderr", Required = false, HelpText = "Redirect stderr to this file")]
             public string? RedirectStdErr { get; set; }
+            
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+
+            [Option('c', "cd", FlagCounter = true, HelpText = "Change CWD")]
+            public int Cd { get; set; }
         }
         
         [Verb("use", HelpText = "Select instance to be used further")]
@@ -351,7 +354,7 @@ public class Program {
 
     static int HandleOpen(Options.OpenOptions options)
     {
-        var instanceData = LoadInstance(options.InputFile!);
+        var instanceData = LoadCurrentlyUsed(options.Using);
         
         RemoteConsoleDriver remoteConsoleDriver = new RemoteConsoleDriver(instanceData!.Value);
         
@@ -375,7 +378,7 @@ public class Program {
 
         try
         {
-            remoteConsoleDriver.Connect();
+            remoteConsoleDriver.Connect(options.Cd != 0);
             remoteConsoleDriver.Start();
             remoteConsoleDriver.Stop();
         }

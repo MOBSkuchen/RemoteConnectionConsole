@@ -34,12 +34,15 @@ public class RemoteConsoleDriver
         _terminated = true;
     }
     
-    public void Connect()
+    public void Connect(bool cd)
     {
+        var iS = RedirectedStdin ?? _inStream;
+        var oS = RedirectedStdout ?? Console.OpenStandardOutput();
+        var eS = RedirectedStderr ?? Console.OpenStandardError();
+        
         _sshClient.Connect();
-        _shell = _sshClient.CreateShell(RedirectedStdin ?? _inStream, 
-            RedirectedStdout ?? Console.OpenStandardOutput(),
-            RedirectedStderr ?? Console.OpenStandardError(), string.Empty, Convert.ToUInt32(Console.WindowWidth),
+        if (cd) _sshClient.RunCommand($"cd {_instanceData.WorkingDirectory}");
+        _shell = _sshClient.CreateShell(iS, oS, eS, string.Empty, Convert.ToUInt32(Console.WindowWidth),
             Convert.ToUInt32(Console.WindowHeight), Convert.ToUInt32(Console.WindowHeight), Convert.ToUInt32(Console.WindowHeight), new Dictionary<TerminalModes, uint>());
         _shell.Stopping += OnStopped;
         _shell.Start();
