@@ -30,22 +30,34 @@ public class Program {
             [Value(1, MetaName = "instance-file", Required = true, HelpText = "Instance data file")]
             public string? InputFile { get; set; }
         }
-        /*
-        [Option('u', "use", HelpText = "Temporarily use an instance")]
-        public string? Using { get; set; }
-         */
+        
+        [Verb("pull", HelpText = "Pull file from remote")]
+        public class PullOptions
+        {
+            [Value(1, MetaName = "remote-file", Required = true, HelpText = "Remote file")]
+            public string? InputFile { get; set; }
+            
+            [Option('o', "output", HelpText = "Local path to write to")]
+            public string? Output { get; set; }
+            
+            [Option('p', "progress", HelpText = "Whether to show progress bar or not")]
+            public bool? Progress { get; set; }
+            
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+        }
     }
-
     public static int Main(String[] args)
     {
         var parser = new Parser(settings =>
         {
             settings.HelpWriter = null;
         });
-        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions>(args);
+        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions>(args);
         return res.MapResult(
             (Options.OpenOptions options) => HandleOpen(options),
             (Options.UseOptions options) => HandleUse(options),
+            (Options.PullOptions options) => HandlePull(options),
             HandleParseError);
     }
     
@@ -167,6 +179,13 @@ public class Program {
         return instanceData;
     }
 
+    static InstanceData? LoadCurrentlyUsed(string? overwrite)
+    {
+        if (overwrite != null) return LoadInstance(overwrite);
+        if (!File.Exists(".rcc-used")) Error(7, "Not currently using any instance!");
+        return LoadInstance(File.ReadAllText(".rcc-used"));
+    }
+
     static int HandleUse(Options.UseOptions options)
     {
         if ((options.InputFile! == "." || options.InputFile! == "/" || options.InputFile! == "-") && File.Exists(".rcc-used"))
@@ -182,35 +201,45 @@ public class Program {
         return 0;
     }
 
+    static int HandlePull(Options.PullOptions options)
+    {
+        var instanceData = LoadCurrentlyUsed(options.Using);
+        var sftpDriver = new SftpDriver(instanceData!.Value);
+        sftpDriver.Connect();
+        var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
+        sftpDriver.Pull(options.InputFile!, outputPath);
+        return 0;
+    }
+
     static int HandleOpen(Options.OpenOptions options)
     {
         var instanceData = LoadInstance(options.InputFile!);
         
-        SftpDriver sftpDriver = new SftpDriver(instanceData!.Value);
+        RemoteConsoleDriver remoteConsoleDriver = new RemoteConsoleDriver(instanceData!.Value);
         
         if (options.RedirectStdIn != null)
         {
-            sftpDriver.RedirectedStdin = File.Open(options.RedirectStdIn, FileMode.OpenOrCreate);
-            sftpDriver.RedirectedStdin.Flush();
+            remoteConsoleDriver.RedirectedStdin = File.Open(options.RedirectStdIn, FileMode.OpenOrCreate);
+            remoteConsoleDriver.RedirectedStdin.Flush();
         }
         
         if (options.RedirectStdOut != null)
         {
-            sftpDriver.RedirectedStdout = File.Open(options.RedirectStdOut, FileMode.OpenOrCreate);
-            sftpDriver.RedirectedStdout.Flush();
+            remoteConsoleDriver.RedirectedStdout = File.Open(options.RedirectStdOut, FileMode.OpenOrCreate);
+            remoteConsoleDriver.RedirectedStdout.Flush();
         }
         
         if (options.RedirectStdErr != null)
         {
-            sftpDriver.RedirectedStderr = File.Open(options.RedirectStdErr, FileMode.OpenOrCreate);
-            sftpDriver.RedirectedStderr.Flush();
+            remoteConsoleDriver.RedirectedStderr = File.Open(options.RedirectStdErr, FileMode.OpenOrCreate);
+            remoteConsoleDriver.RedirectedStderr.Flush();
         }
 
         try
         {
-            sftpDriver.Connect();
-            sftpDriver.Start();
-            sftpDriver.Stop();
+            remoteConsoleDriver.Connect();
+            remoteConsoleDriver.Start();
+            remoteConsoleDriver.Stop();
         }
         catch (System.Net.Sockets.SocketException e)
         {
@@ -226,10 +255,8 @@ public class Program {
         }
         finally
         {
-            sftpDriver.Close();
+            remoteConsoleDriver.Close();
         }
-
-
         return 0;
     }
     
@@ -254,7 +281,7 @@ public class Program {
         }
     }
 
-    static void Error(int err, String msg)
+    public static void Error(int err, String msg)
     {
         Console.WriteLine($"Error ({err}) : {msg}");
         Environment.Exit(err);

@@ -1,20 +1,12 @@
 ﻿using Renci.SshNet;
-using Renci.SshNet.Common;
 
 namespace RemoteConnectionConsole;
-
 
 public class SftpDriver
 {
     private readonly SshClient _sshClient;
+    private readonly SftpClient _sftpClient;
     private readonly InstanceData _instanceData;
-    private Shell _shell = null!;
-    private bool _terminated = false;
-    private readonly PipeStream _inStream = new PipeStream();
-
-    public Stream? RedirectedStdin;
-    public Stream? RedirectedStdout;
-    public Stream? RedirectedStderr;
 
     public SftpDriver(InstanceData instanceData)
     {
@@ -22,56 +14,81 @@ public class SftpDriver
         {
             _sshClient = new SshClient(instanceData.Host, instanceData.Port, instanceData.Username,
                 instanceData.Password);
+            _sftpClient = new SftpClient(instanceData.Host, instanceData.Port, instanceData.Username,
+                instanceData.Password);
         } else {
             _sshClient = new SshClient(instanceData.Host, instanceData.Port, instanceData.Username,
                 new PrivateKeyFile(instanceData.Password));
+            _sftpClient = new SftpClient(instanceData.Host, instanceData.Port, instanceData.Username,
+                new PrivateKeyFile(instanceData.Password));
         }
         _instanceData = instanceData;
-        Console.Title = $"{instanceData.Username}@{instanceData.Host}";
     }
 
-    private void OnStopped(object? o, EventArgs eventArgs) {
-        _terminated = true;
-    }
-    
     public void Connect()
     {
         _sshClient.Connect();
-        _shell = _sshClient.CreateShell(RedirectedStdin ?? _inStream, 
-            RedirectedStdout ?? Console.OpenStandardOutput(),
-            RedirectedStderr ?? Console.OpenStandardError(), string.Empty, Convert.ToUInt32(Console.WindowWidth),
-            Convert.ToUInt32(Console.WindowHeight), Convert.ToUInt32(Console.WindowHeight), Convert.ToUInt32(Console.WindowHeight), new Dictionary<TerminalModes, uint>());
-        _shell.Stopping += OnStopped;
-        _shell.Start();
+        _sftpClient.Connect();
     }
 
-    public void Start()
+    public void Dispose()
     {
-        Console.TreatControlCAsInput = true;
-
-        while (!_terminated)
-        {
-            if (RedirectedStdin != null) RedirectedStdin.Flush();
-            if (RedirectedStdout != null) RedirectedStdout.Flush();
-            if (RedirectedStderr != null) RedirectedStderr.Flush();
-            if (!Console.KeyAvailable) continue;
-            var key = Console.ReadKey(true);
-            _inStream.WriteByte((byte) key.KeyChar);
-            _inStream.Flush();
-        }
-    }
-
-    public void Stop()
-    {
-        _shell.Stop();
+        _sftpClient.Disconnect();
+        _sftpClient.Dispose();
         _sshClient.Disconnect();
-        _shell.Dispose();
         _sshClient.Dispose();
     }
     
-    public void Close() {
-        if (RedirectedStdin != null) RedirectedStdin.Close();
-        if (RedirectedStdout != null) RedirectedStdout.Close();
-        if (RedirectedStderr != null) RedirectedStderr.Close();
+    private static void ProgressBar(int progress, int tot)
+    {
+        //draw empty progress bar
+        Console.CursorLeft = 0;
+        Console.Write("["); //start
+        Console.CursorLeft = 32;
+        Console.Write("]"); //end
+        Console.CursorLeft = 1;
+        float onechunk = 30.0f / tot;
+
+        //draw filled part
+        int position = 1;
+        for (int i = 0; i < onechunk * progress; i++)
+        {
+            Console.BackgroundColor = ConsoleColor.Green;
+            Console.CursorLeft = position++;
+            Console.Write(" ");
+        }
+
+        //draw unfilled part
+        for (int i = position; i <= 31; i++)
+        {
+            Console.BackgroundColor = ConsoleColor.Gray;
+            Console.CursorLeft = position++;
+            Console.Write(" ");
+        }
+
+        //draw totals
+        Console.CursorLeft = 35;
+        Console.BackgroundColor = ConsoleColor.Black;
+        Console.Write(progress.ToString() + " of " + tot.ToString() + "    "); //blanks at the end remove any excess
     }
+
+    public bool Exists(string remotePath) => _sftpClient.Exists(remotePath);
+
+    public void Pull(string remotePath, string localPath)
+    {
+        if (!Exists(remotePath)) Program.Error(8, "Remote path does not exist");
+        int totalSize = (int) _sftpClient.GetAttributes(remotePath).Size;
+        Stream localFileStream = File.OpenWrite(localPath);
+        _sftpClient.DownloadFile(remotePath, localFileStream, obj =>
+        {
+            ProgressBar((int) obj, totalSize);
+        });
+        localFileStream.Flush();
+        localFileStream.Close();
+        localFileStream.Dispose();
+        Console.CursorLeft = 0;
+        Console.Write("\n");
+        Console.WriteLine($"Pulled {remotePath} to {localPath}");
+    }
+
 }
