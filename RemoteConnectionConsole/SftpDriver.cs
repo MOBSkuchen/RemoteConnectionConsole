@@ -27,6 +27,7 @@ public class SftpDriver
                 new PrivateKeyFile(instanceData.Password));
         }
         _instanceData = instanceData;
+        Console.Title = $"{instanceData.Username}@{instanceData.Host}";
     }
 
     private void OnStopped(object? o, EventArgs eventArgs) {
