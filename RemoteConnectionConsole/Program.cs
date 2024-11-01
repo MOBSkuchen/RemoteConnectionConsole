@@ -110,15 +110,15 @@ public class Program {
             public string? Using { get; set; }
         }
         
-        // [Verb("cd", HelpText = "Change CWD")]
-        // public class CdOptions
-        // {
-        //     [Value(1, MetaName = "path", Required = true, HelpText = "Path")]
-        //     public string? InputFile { get; set; }
-        //     
-        //     [Option('u', "use", HelpText = "Temporarily use an instance")]
-        //     public string? Using { get; set; }
-        // }
+        [Verb("cd", HelpText = "Change CWD for an instance")]
+        public class CdOptions
+        {
+            [Value(1, MetaName = "path", Required = true, HelpText = "Path")]
+            public string? Path { get; set; }
+            
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+        }
     }
     public static int Main(String[] args)
     {
@@ -127,7 +127,8 @@ public class Program {
             settings.HelpWriter = null;
         });
         var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, 
-            Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions, Options.DeleteOptions>(args);
+            Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions, Options.DeleteOptions, 
+            Options.CdOptions>(args);
         return res.MapResult(
             (Options.OpenOptions options) => HandleOpen(options),
             (Options.UseOptions options) => HandleUse(options),
@@ -137,6 +138,7 @@ public class Program {
             (Options.CopyOptions options) => HandleCopy(options),
             (Options.ListOptions options) => HandleList(options),
             (Options.DeleteOptions options) => HandleDelete(options),
+            (Options.CdOptions options) => HandleCd(options),
             HandleParseError);
     }
     
@@ -253,7 +255,7 @@ public class Program {
         }
         AssertHas(["host", "username", "password", "port", "isKeyAuth"], instData);
 
-        InstanceData? instanceData = InstanceData.ConvertToInstanceData(instData!);
+        InstanceData? instanceData = InstanceData.ConvertToInstanceData(instData!, filePath);
         if (instanceData == null) Error(2, "Invalid config file");
         return instanceData;
     }
@@ -333,6 +335,17 @@ public class Program {
         var sftpDriver = new SftpDriver(instanceData!.Value);
         sftpDriver.Connect();
         sftpDriver.Delete(options.InputFile!);
+        return 0;
+    }
+
+    static int HandleCd(Options.CdOptions options)
+    {
+        var instanceData = LoadCurrentlyUsed(options.Using)!.Value;
+        var sftpDriver = new SftpDriver(instanceData);
+        sftpDriver.Connect();
+        instanceData.WorkingDirectory = sftpDriver.ChangeDirectory(options.Path!);
+        instanceData.WriteToFile();
+        Console.WriteLine($"Set new working directory to {instanceData.WorkingDirectory} for instance {instanceData.Path}");
         return 0;
     }
 

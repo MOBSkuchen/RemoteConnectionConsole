@@ -6,7 +6,6 @@ namespace RemoteConnectionConsole;
 
 public class SftpDriver
 {
-    private readonly SshClient _sshClient;
     private readonly SftpClient _sftpClient;
     private readonly InstanceData _instanceData;
 
@@ -14,13 +13,9 @@ public class SftpDriver
     {
         if (!instanceData.IsKeyAuth)
         {
-            _sshClient = new SshClient(instanceData.Host, instanceData.Port, instanceData.Username,
-                instanceData.Password);
             _sftpClient = new SftpClient(instanceData.Host, instanceData.Port, instanceData.Username,
                 instanceData.Password);
         } else {
-            _sshClient = new SshClient(instanceData.Host, instanceData.Port, instanceData.Username,
-                new PrivateKeyFile(instanceData.Password));
             _sftpClient = new SftpClient(instanceData.Host, instanceData.Port, instanceData.Username,
                 new PrivateKeyFile(instanceData.Password));
         }
@@ -29,16 +24,14 @@ public class SftpDriver
 
     public void Connect()
     {
-        _sshClient.Connect();
         _sftpClient.Connect();
+        _sftpClient.ChangeDirectory(_instanceData.WorkingDirectory);
     }
 
     public void Dispose()
     {
         _sftpClient.Disconnect();
         _sftpClient.Dispose();
-        _sshClient.Disconnect();
-        _sshClient.Dispose();
     }
     
     private static void ProgressBar(int progress, int tot)
@@ -159,6 +152,13 @@ public class SftpDriver
         if (!Exists(remotePath)) Program.Error(8, "Remote path does not exist");
         _sftpClient.Delete(remotePath);
         Console.WriteLine($"Deleted {remotePath}");
+    }
+
+    public string ChangeDirectory(string path)
+    {
+        if (!Exists(path) || !_sftpClient.GetAttributes(path).IsDirectory) Program.Error(8, "Remote path does not exist or is not a directory");
+        _sftpClient.ChangeDirectory(path);
+        return _sftpClient.WorkingDirectory;
     }
 
 }

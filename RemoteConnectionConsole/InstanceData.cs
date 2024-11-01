@@ -1,11 +1,16 @@
-﻿namespace RemoteConnectionConsole;
+﻿using System.Text.Json;
+using YamlDotNet.Serialization;
+
+namespace RemoteConnectionConsole;
 
 public struct InstanceData(
     string host,
     string username,
     int port,
     string password,
-    bool isKeyAuth)
+    bool isKeyAuth,
+    string workingDirectory,
+    string path)
 {
     public readonly string Host = host;
     public readonly string Username = username;
@@ -13,11 +18,15 @@ public struct InstanceData(
 
     public readonly string Password = password;
     public readonly bool IsKeyAuth = isKeyAuth;
+    public string WorkingDirectory = workingDirectory;
 
-    public static InstanceData? ConvertToInstanceData(Dictionary<string, string> instanceDataDictionary) {
+    public readonly string Path = path;
+
+    public static InstanceData? ConvertToInstanceData(Dictionary<string, string> instanceDataDictionary, string path) {
         return new InstanceData(instanceDataDictionary["host"], instanceDataDictionary["username"],
             Convert.ToInt32(instanceDataDictionary["port"]), instanceDataDictionary["password"],
-            instanceDataDictionary["isKeyAuth"].ToLower() == "true");
+            instanceDataDictionary["isKeyAuth"].ToLower() == "true", instanceDataDictionary.GetValueOrDefault("workingDirectory", "/"), path);
+        
     }
 
     public Dictionary<string, string> ConvertToDictionary()
@@ -28,9 +37,16 @@ public struct InstanceData(
             {"username", Username},
             {"port", Port.ToString()},
             {"password", Password},
-            {"isKeyAuth", IsKeyAuth.ToString()}
+            {"isKeyAuth", IsKeyAuth.ToString()},
+            {"workingDirectory", WorkingDirectory}
         };
 
         return newDict;
+    }
+
+    public void WriteToFile()
+    {
+        if (Path.EndsWith(".json")) JsonSerializer.Serialize(File.OpenWrite(Path), ConvertToDictionary());
+        else if (Path.EndsWith(".yml")) File.WriteAllText(Path, new Serializer().Serialize(ConvertToDictionary()));
     }
 }
