@@ -11,7 +11,7 @@ public class Program {
         [Verb("open", HelpText = "Open Remote Console Session")]
         public class CompileOptions
         {
-            [Value(1, MetaName = "input", Required = true, HelpText = "Instance data file")]
+            [Value(1, MetaName = "instance-file", Required = true, HelpText = "Instance data file")]
             public string? InputFile { get; set; }
             
             [Option("redirect-stdin", Required = false, HelpText = "Redirect stdin to this file")]
@@ -44,29 +44,31 @@ public class Program {
             if (err.Tag == ErrorType.HelpRequestedError)
             {
                 PrintVersion();
-                Console.WriteLine("-");
-                Console.WriteLine("|< usage => RemoteConnectionConsole <instance-file> (--redirect-stdin <file>) (--redirect-stdout <file>) (--redirect-stderr <file>) (--help) (--version)");
-                Console.WriteLine("|");
-                Console.WriteLine("|> Instance file > A JSON or YAML file containing data about the instance");
-                Console.WriteLine("|               -> host: <target host>");
-                Console.WriteLine("|               -> username: <login username>");
-                Console.WriteLine("|               -> password: <login password>");
-                Console.WriteLine("|               -> port: <host port>");
-                Console.WriteLine("|               !> Usually 22");
-                Console.WriteLine("|               -> isKeyAuth: <boolean>");
-                Console.WriteLine("|               !> If this is set to true, the password should contain the path of the key file in openssh format");
-                Console.WriteLine("|");
-                Console.WriteLine("|> --redirect-stdin > The file that should replace the stdin stream");
-                Console.WriteLine("|");
-                Console.WriteLine("|> --redirect-stdout > The file that should replace the stdout stream");
-                Console.WriteLine("|");
-                Console.WriteLine("|> --redirect-stderr > The file that should replace the stderr stream");
-                Console.WriteLine("|");
-                Console.WriteLine("|> --help > Display this help message");
-                Console.WriteLine("|");
-                Console.WriteLine("|> --version > Display the current version");
-                Console.WriteLine("|");
-                Console.WriteLine("- End of help");
+                Console.WriteLine();
+                Console.WriteLine("usage => RemoteConnectionConsole <...> (--help) (--version)");
+                Console.WriteLine();
+                Console.WriteLine(" OPTIONS:");
+                Console.WriteLine();
+                Console.WriteLine("  instance-file > A JSON or YAML file containing data about the instance");
+                Console.WriteLine("                -> host: <target host>");
+                Console.WriteLine("                -> username: <login username>");
+                Console.WriteLine("                -> password: <login password>");
+                Console.WriteLine("                -> port: <host port>");
+                Console.WriteLine("                !> Usually 22");
+                Console.WriteLine("                -> isKeyAuth: <boolean>");
+                Console.WriteLine("                !> If this is set to true, the password should contain the path of the key file in openssh format");
+                Console.WriteLine();
+                Console.WriteLine("  --redirect-stdin > The file that should replace the stdin stream");
+                Console.WriteLine();
+                Console.WriteLine("  --redirect-stdout > The file that should replace the stdout stream");
+                Console.WriteLine();
+                Console.WriteLine("  --redirect-stderr > The file that should replace the stderr stream");
+                Console.WriteLine();
+                Console.WriteLine("  --help > Display this help message");
+                Console.WriteLine();
+                Console.WriteLine("  --version > Display the current version");
+                Console.WriteLine();
+                Console.WriteLine("End of help");
                 continue;
             }
 
