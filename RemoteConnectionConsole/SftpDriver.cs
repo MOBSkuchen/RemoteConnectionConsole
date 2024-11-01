@@ -30,7 +30,6 @@ public class SftpDriver
     }
 
     private void OnStopped(object? o, EventArgs eventArgs) {
-        Console.Beep();
         _terminated = true;
     }
     
