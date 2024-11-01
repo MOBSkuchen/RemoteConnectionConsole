@@ -91,5 +91,22 @@ public class SftpDriver
         }
         Console.WriteLine($"Pulled {remotePath} to {localPath}");
     }
+    
+    public void Push(string localPath, string remotePath, bool showProgress)
+    {
+        if (!File.Exists(localPath)) Program.Error(8, "Local path does not exist");
+        int totalSize = (int) new FileInfo(localPath).Length;
+        Stream localFileStream = File.OpenRead(localPath);
+        if (showProgress) _sftpClient.UploadFile(localFileStream, remotePath, obj => { ProgressBar((int) obj, totalSize); });
+        else _sftpClient.UploadFile(localFileStream, remotePath);
+        localFileStream.Close();
+        localFileStream.Dispose();
+        if (showProgress)
+        {
+            Console.CursorLeft = 0;
+            Console.Write("\n");
+        }
+        Console.WriteLine($"Pushed {localPath} to {remotePath}");
+    }
 
 }

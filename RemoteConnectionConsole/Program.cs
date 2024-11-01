@@ -37,7 +37,23 @@ public class Program {
             [Value(1, MetaName = "remote-file", Required = true, HelpText = "Remote file")]
             public string? InputFile { get; set; }
             
-            [Option('o', "output", HelpText = "Local path to write to")]
+            [Option('o', "output", HelpText = "Local path to write to, leave blank to auto fill")]
+            public string? Output { get; set; }
+            
+            [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
+            public int Progress { get; set; }
+            
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+        }
+        
+        [Verb("push", HelpText = "Push file to remote")]
+        public class PushOptions
+        {
+            [Value(1, MetaName = "local-file", Required = true, HelpText = "Local file")]
+            public string? InputFile { get; set; }
+            
+            [Option('o', "output", HelpText = "Remote path to write to, leave blank to auto fill")]
             public string? Output { get; set; }
             
             [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
@@ -53,11 +69,12 @@ public class Program {
         {
             settings.HelpWriter = null;
         });
-        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions>(args);
+        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, Options.PushOptions>(args);
         return res.MapResult(
             (Options.OpenOptions options) => HandleOpen(options),
             (Options.UseOptions options) => HandleUse(options),
             (Options.PullOptions options) => HandlePull(options),
+            (Options.PushOptions options) => HandlePush(options),
             HandleParseError);
     }
     
@@ -208,6 +225,16 @@ public class Program {
         sftpDriver.Connect();
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
         sftpDriver.Pull(options.InputFile!, outputPath, options.Progress == 0);
+        return 0;
+    }
+    
+    static int HandlePush(Options.PushOptions options)
+    {
+        var instanceData = LoadCurrentlyUsed(options.Using);
+        var sftpDriver = new SftpDriver(instanceData!.Value);
+        sftpDriver.Connect();
+        var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
+        sftpDriver.Push(options.InputFile!, outputPath, options.Progress == 0);
         return 0;
     }
 
