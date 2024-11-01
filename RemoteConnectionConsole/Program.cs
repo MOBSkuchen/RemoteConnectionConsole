@@ -9,7 +9,7 @@ public class Program {
     private class Options
     {
         [Verb("open", HelpText = "Open Remote Console Session")]
-        public class CompileOptions
+        public class OpenOptions
         {
             [Value(1, MetaName = "instance-file", Required = true, HelpText = "Instance data file")]
             public string? InputFile { get; set; }
@@ -23,6 +23,13 @@ public class Program {
             [Option("redirect-stderr", Required = false, HelpText = "Redirect stderr to this file")]
             public string? RedirectStdErr { get; set; }
         }
+        
+        [Verb("use", HelpText = "Select instance to be used further")]
+        public class UseOptions
+        {
+            [Value(1, MetaName = "instance-file", Required = true, HelpText = "Instance data file")]
+            public string? InputFile { get; set; }
+        }
     }
 
     public static int Main(String[] args)
@@ -31,8 +38,11 @@ public class Program {
         {
             settings.HelpWriter = null;
         });
-        var res = parser.ParseArguments<Options.CompileOptions>(args);
-        return res.MapResult(Handle, HandleParseError);
+        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions>(args);
+        return res.MapResult(
+            (Options.OpenOptions options) => HandleOpen(options),
+            (Options.UseOptions options) => HandleUse(options),
+            HandleParseError);
     }
     
     static void PrintVersion() => Console.WriteLine("RemoteConnectionConsole version 1.0");
@@ -135,12 +145,12 @@ public class Program {
         return 1;
     }
 
-    static int Handle(Options.CompileOptions options)
+    static InstanceData? LoadInstance(string filePath)
     {
         Dictionary<string, string>? instData = null;
         try
         {
-            instData = LoadConfig(options.InputFile!);
+            instData = LoadConfig(filePath);
         }
         catch (Exception e)
         {
@@ -150,6 +160,19 @@ public class Program {
 
         InstanceData? instanceData = InstanceData.ConvertToInstanceData(instData!);
         if (instanceData == null) Error(2, "Invalid config file");
+        return instanceData;
+    }
+
+    static int HandleUse(Options.UseOptions options)
+    {
+        LoadInstance(options.InputFile!);
+        File.WriteAllText(".rcc-used", options.InputFile);
+        return 0;
+    }
+
+    static int HandleOpen(Options.OpenOptions options)
+    {
+        var instanceData = LoadInstance(options.InputFile!);
         
         SftpDriver sftpDriver = new SftpDriver(instanceData!.Value);
         
