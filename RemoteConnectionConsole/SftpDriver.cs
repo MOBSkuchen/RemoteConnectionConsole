@@ -109,4 +109,35 @@ public class SftpDriver
         Console.WriteLine($"Pushed {localPath} to {remotePath}");
     }
 
+    public void Move(string oldPath, string newPath, bool copy, bool showProgress)
+    {
+        if (!Exists(oldPath)) Program.Error(8, "Remote path does not exist");
+        if (!copy)
+        {
+            _sftpClient.RenameFile(oldPath, newPath);
+            Console.WriteLine($"Moved {oldPath} to {newPath}");
+        }
+        else
+        {
+            var reader = _sftpClient.OpenRead(oldPath);
+            var writer = _sftpClient.OpenWrite(newPath);
+            var target = reader.Length;
+            var completed = 0;
+            while (target > completed)
+            {
+                byte[] buffer = new byte[1024];
+                var read = reader.Read(buffer);
+                completed += read;
+                writer.Write(buffer, 0, read);
+                if (showProgress) ProgressBar(completed, (int) target);
+            }
+            if (showProgress)
+            {
+                Console.CursorLeft = 0;
+                Console.Write("\n");
+            }
+            Console.WriteLine($"Copied {oldPath} to {newPath}");
+        }
+    }
+
 }

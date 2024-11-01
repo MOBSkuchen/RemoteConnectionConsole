@@ -62,6 +62,38 @@ public class Program {
             [Option('u', "use", HelpText = "Temporarily use an instance")]
             public string? Using { get; set; }
         }
+        
+        [Verb("move", HelpText = "Move remote file")]
+        public class MoveOptions
+        {
+            [Value(1, MetaName = "old-file", Required = true, HelpText = "Old remote file")]
+            public string? InputFile { get; set; }
+            
+            [Value(2, MetaName = "new-file", Required = true, HelpText = "New remote file")]
+            public string? TargetFile { get; set; }
+            
+            [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
+            public int Progress { get; set; }
+            
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+        }
+        
+        [Verb("copy", HelpText = "Copy remote file")]
+        public class CopyOptions
+        {
+            [Value(1, MetaName = "old-file", Required = true, HelpText = "Old remote file")]
+            public string? InputFile { get; set; }
+            
+            [Value(2, MetaName = "new-file", Required = true, HelpText = "New remote file")]
+            public string? TargetFile { get; set; }
+            
+            [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
+            public int Progress { get; set; }
+            
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+        }
     }
     public static int Main(String[] args)
     {
@@ -69,12 +101,14 @@ public class Program {
         {
             settings.HelpWriter = null;
         });
-        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, Options.PushOptions>(args);
+        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, Options.PushOptions, Options.MoveOptions, Options.CopyOptions>(args);
         return res.MapResult(
             (Options.OpenOptions options) => HandleOpen(options),
             (Options.UseOptions options) => HandleUse(options),
             (Options.PullOptions options) => HandlePull(options),
             (Options.PushOptions options) => HandlePush(options),
+            (Options.MoveOptions options) => HandleMove(options),
+            (Options.CopyOptions options) => HandleCopy(options),
             HandleParseError);
     }
     
@@ -151,7 +185,7 @@ public class Program {
                     message = "No verb selected";
                     break;
                 case ErrorType.BadVerbSelectedError:
-                    message = "Bad verb selected";
+                    message = "Invalid option";
                     break;
                 case ErrorType.SetValueExceptionError:
                     message = "Set value exception";
@@ -235,6 +269,24 @@ public class Program {
         sftpDriver.Connect();
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
         sftpDriver.Push(options.InputFile!, outputPath, options.Progress == 0);
+        return 0;
+    }
+    
+    static int HandleMove(Options.MoveOptions options)
+    {
+        var instanceData = LoadCurrentlyUsed(options.Using);
+        var sftpDriver = new SftpDriver(instanceData!.Value);
+        sftpDriver.Connect();
+        sftpDriver.Move(options.InputFile!, options.TargetFile!, false, options.Progress == 0);
+        return 0;
+    }
+    
+    static int HandleCopy(Options.CopyOptions options)
+    {
+        var instanceData = LoadCurrentlyUsed(options.Using);
+        var sftpDriver = new SftpDriver(instanceData!.Value);
+        sftpDriver.Connect();
+        sftpDriver.Move(options.InputFile!, options.TargetFile!, true, options.Progress == 0);
         return 0;
     }
 
