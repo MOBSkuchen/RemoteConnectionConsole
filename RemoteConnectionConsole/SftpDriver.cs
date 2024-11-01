@@ -1,4 +1,6 @@
-﻿using Renci.SshNet;
+﻿using System.Globalization;
+using Renci.SshNet;
+using Renci.SshNet.Sftp;
 
 namespace RemoteConnectionConsole;
 
@@ -137,6 +139,18 @@ public class SftpDriver
                 Console.Write("\n");
             }
             Console.WriteLine($"Copied {oldPath} to {newPath}");
+        }
+    }
+
+    public void List()
+    {
+        Console.WriteLine($"Listing {_sftpClient.WorkingDirectory}:");
+        foreach (SftpFile sftpFile in _sftpClient.ListDirectory("."))
+        {
+            // TODO: Make this better
+            if (sftpFile.Name == "." || sftpFile.Name == "..") continue;
+            if (sftpFile.IsDirectory) Console.WriteLine($" / {sftpFile.LastAccessTime.ToString(CultureInfo.CurrentCulture)} {sftpFile.Name}");
+            else if (sftpFile.IsRegularFile) Console.WriteLine($" - {sftpFile.LastAccessTime.ToString(CultureInfo.CurrentCulture)} {sftpFile.Name}");
         }
     }
 

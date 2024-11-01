@@ -94,6 +94,42 @@ public class Program {
             [Option('u', "use", HelpText = "Temporarily use an instance")]
             public string? Using { get; set; }
         }
+        
+        // [Verb("del", HelpText = "Delete remote file")]
+        // public class DeleteOptions
+        // {
+        //     [Value(1, MetaName = "remote-file", Required = true, HelpText = "Remote file")]
+        //     public string? InputFile { get; set; }
+        //     
+        //     [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
+        //     public int Progress { get; set; }
+        //     
+        //     [Option('u', "use", HelpText = "Temporarily use an instance")]
+        //     public string? Using { get; set; }
+        // }
+        
+        [Verb("list", HelpText = "List CWD")]
+        public class ListOptions
+        {
+            [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
+            public int Progress { get; set; }
+            
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+        }
+        
+        // [Verb("cd", HelpText = "Change CWD")]
+        // public class CdOptions
+        // {
+        //     [Value(1, MetaName = "path", Required = true, HelpText = "Path")]
+        //     public string? InputFile { get; set; }
+        //     
+        //     [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
+        //     public int Progress { get; set; }
+        //     
+        //     [Option('u', "use", HelpText = "Temporarily use an instance")]
+        //     public string? Using { get; set; }
+        // }
     }
     public static int Main(String[] args)
     {
@@ -101,7 +137,7 @@ public class Program {
         {
             settings.HelpWriter = null;
         });
-        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, Options.PushOptions, Options.MoveOptions, Options.CopyOptions>(args);
+        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions>(args);
         return res.MapResult(
             (Options.OpenOptions options) => HandleOpen(options),
             (Options.UseOptions options) => HandleUse(options),
@@ -109,6 +145,7 @@ public class Program {
             (Options.PushOptions options) => HandlePush(options),
             (Options.MoveOptions options) => HandleMove(options),
             (Options.CopyOptions options) => HandleCopy(options),
+            (Options.ListOptions options) => HandleList(options),
             HandleParseError);
     }
     
@@ -287,6 +324,15 @@ public class Program {
         var sftpDriver = new SftpDriver(instanceData!.Value);
         sftpDriver.Connect();
         sftpDriver.Move(options.InputFile!, options.TargetFile!, true, options.Progress == 0);
+        return 0;
+    }
+    
+    static int HandleList(Options.ListOptions options)
+    {
+        var instanceData = LoadCurrentlyUsed(options.Using);
+        var sftpDriver = new SftpDriver(instanceData!.Value);
+        sftpDriver.Connect();
+        sftpDriver.List();
         return 0;
     }
 
