@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Renci.SshNet;
+using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
 
 namespace RemoteConnectionConsole;
@@ -32,6 +33,21 @@ public class SftpDriver
     {
         _sftpClient.Disconnect();
         _sftpClient.Dispose();
+    }
+    
+    static string FormatSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB", "PB", "EB" };
+        double len = bytes;
+        int order = 0;
+
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+
+        return $"{len:0.##} {sizes[order]}";
     }
     
     private static void ProgressBar(int progress, int tot)
@@ -138,18 +154,76 @@ public class SftpDriver
     public void List()
     {
         Console.WriteLine($"Listing {_sftpClient.WorkingDirectory}:");
+        int fileCounter = 0;
+        int directoryCounter = 0;
+        int totalCounter = 0;
+        long totalSize = 0;
         foreach (SftpFile sftpFile in _sftpClient.ListDirectory("."))
         {
-            // TODO: Make this better
             if (sftpFile.Name == "." || sftpFile.Name == "..") continue;
-            if (sftpFile.IsDirectory) Console.WriteLine($" / {sftpFile.LastAccessTime.ToString(CultureInfo.CurrentCulture)} {sftpFile.Name}");
-            else if (sftpFile.IsRegularFile) Console.WriteLine($" - {sftpFile.LastAccessTime.ToString(CultureInfo.CurrentCulture)} {sftpFile.Name}");
+            var gs = GetSize(sftpFile.FullName);
+            totalSize += gs.Item1;
+            totalCounter += gs.Item2;
+            if (sftpFile.IsDirectory)
+            {
+                directoryCounter++;
+                Console.WriteLine($" / {sftpFile.LastAccessTime.ToString(CultureInfo.CurrentCulture)} {sftpFile.Name} {FormatSize(gs.Item1)}");
+            }
+            else if (sftpFile.IsRegularFile)
+            {
+                fileCounter++;
+                Console.WriteLine($" - {sftpFile.LastAccessTime.ToString(CultureInfo.CurrentCulture)} {sftpFile.Name} {FormatSize(gs.Item1)}");
+            }
         }
+        Console.WriteLine($"{fileCounter} files & {directoryCounter} directories ({fileCounter + directoryCounter} in total / " +
+                          $"{totalCounter} including subdirectories). {FormatSize(totalSize)}");
     }
+
+    bool IsDir(string remotePath)
+    {
+        return _sftpClient.GetAttributes(remotePath).IsDirectory;
+    }
+
+    (long, int) GetSize(SftpFile file)
+    {
+        long size = 0;
+        int searched = 1;
+        try
+        {
+            if (file.IsDirectory) {
+                foreach (SftpFile sftpFile in _sftpClient.ListDirectory(file.FullName))
+                {
+                    if (sftpFile.Name == "." || sftpFile.Name == "..") continue;
+                    var gs = GetSize(sftpFile);
+                    size += gs.Item1;
+                    searched += gs.Item2;
+                }
+            }
+        } catch (SftpPathNotFoundException exception) {}
+        size += file.Attributes.Size;
+        return (size, searched);
+    }
+
+    (long, int) GetSize(string remotePath) => GetSize(_sftpClient.Get(remotePath));
 
     public void Delete(string remotePath)
     {
         if (!Exists(remotePath)) Program.Error(8, "Remote path does not exist");
+        bool isDir = IsDir(remotePath);
+        var gs = GetSize(remotePath);
+        while (true)
+        {
+            if (isDir) Console.Write($"Do you want to delete {remotePath} (=> {gs.Item2}, {FormatSize(gs.Item1)})? [Y/N] ");
+            else Console.Write($"Do you want to delete {remotePath} (=> {FormatSize(gs.Item1)})? [Y/N] ");
+            var key = Console.ReadKey(true);
+            Program.ClearCurrentConsoleLine();
+            if (key.KeyChar == 'Y' || key.KeyChar == 'y') break;
+            if (key.KeyChar == 'N' || key.KeyChar == 'n')
+            {
+                Console.WriteLine("Aborted");
+                return;
+            }
+        }
         _sftpClient.Delete(remotePath);
         Console.WriteLine($"Deleted {remotePath}");
     }
