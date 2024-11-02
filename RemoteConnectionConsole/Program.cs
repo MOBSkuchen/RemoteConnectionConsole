@@ -5,6 +5,121 @@ using YamlDotNet.Serialization;
 
 namespace RemoteConnectionConsole;
 
+public static class CommandsHandler
+{
+    public const string VERSION = "2.0";
+    
+    public static void Open()
+    {
+        Console.WriteLine("Command: open - Open Remote Console Session");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  --redirect-stdin      Redirect stdin to this file (optional)");
+        Console.WriteLine("  --redirect-stdout     Redirect stdout to this file (optional)");
+        Console.WriteLine("  --redirect-stderr     Redirect stderr to this file (optional)");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
+        Console.WriteLine("  -c, --cd              Change CWD (optional)");
+    }
+
+    public static void Version()
+    {
+        Console.WriteLine("Command: version - Get the current version");
+        Console.WriteLine("Options: None");
+    }
+
+    public static void Use()
+    {
+        Console.WriteLine("Command: use - Select instance to be used further");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  instance-file         Instance data file (required)");
+    }
+
+    public static void Pull()
+    {
+        Console.WriteLine("Command: pull - Pull file from remote");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  remote-file           Remote file to pull (required)");
+        Console.WriteLine("  -o, --output          Local path to write to (optional, leave blank to auto fill)");
+        Console.WriteLine("  -p, --progress        Do not show progress bar (optional)");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
+    }
+
+    public static void Push()
+    {
+        Console.WriteLine("Command: push - Push file to remote");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  local-file            Local file to push (required)");
+        Console.WriteLine("  -o, --output          Remote path to write to (optional, leave blank to auto fill)");
+        Console.WriteLine("  -p, --progress        Do not show progress bar (optional)");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
+    }
+
+    public static void Move()
+    {
+        Console.WriteLine("Command: move - Move remote file");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  old-file              Old remote file (required)");
+        Console.WriteLine("  new-file              New remote file (required)");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
+    }
+
+    public static void Copy()
+    {
+        Console.WriteLine("Command: copy - Copy remote file");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  old-file              Old remote file (required)");
+        Console.WriteLine("  new-file              New remote file (required)");
+        Console.WriteLine("  -p, --progress        Do not show progress bar (optional)");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
+    }
+
+    public static void Delete()
+    {
+        Console.WriteLine("Command: del - Delete remote file");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  remote-file           Remote file to delete (required)");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
+    }
+
+    public static void List()
+    {
+        Console.WriteLine("Command: list - List CWD");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
+    }
+
+    public static void ChangeDirectory()
+    {
+        Console.WriteLine("Command: cd - Change CWD for an instance");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  path                  Path to change to (required)");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
+    }
+
+    public static void PrintGeneralHelp()
+    {
+        Console.WriteLine("Available Commands:");
+        Console.WriteLine("  open       - Open Remote Console Session");
+        Console.WriteLine("  use        - Select instance to be used further");
+        Console.WriteLine("  pull       - Pull file from remote");
+        Console.WriteLine("  push       - Push file to remote");
+        Console.WriteLine("  move       - Move remote file");
+        Console.WriteLine("  copy       - Copy remote file");
+        Console.WriteLine("  del        - Delete remote file");
+        Console.WriteLine("  list       - List CWD");
+        Console.WriteLine("  cd         - Change CWD for an instance");
+        Console.WriteLine("  help       - Print help [about a command]");
+        Console.WriteLine("  --version  - Print version");
+        Console.WriteLine("\nUse 'RemoteConnectionConsole help <name>' to get detailed options for each command.");
+    }
+
+    public static void Help()
+    {
+        Console.WriteLine("Command: help - Get help");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  command               Command to learn about (optional)");
+    }
+}
+
 public class Program {
     private class Options
     {
@@ -122,16 +237,28 @@ public class Program {
             [Option('u', "use", HelpText = "Temporarily use an instance")]
             public string? Using { get; set; }
         }
+
+        [Verb("help", HelpText = "Get help")]
+        public class HelpOptions
+        {
+            [Value(1, MetaName = "cmd", Required = false, HelpText = "Command")]
+            public string? Cmd { get; set; }
+        }
+        
+        [Verb("version")]
+        public class VersionOptions { }
     }
     public static int Main(String[] args)
     {
         var parser = new Parser(settings =>
         {
             settings.HelpWriter = null;
+            settings.AutoHelp = false;
+            settings.AutoVersion = false;
         });
         var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, 
             Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions, Options.DeleteOptions, 
-            Options.CdOptions>(args);
+            Options.CdOptions, Options.HelpOptions, Options.VersionOptions>(args);
         return res.MapResult(
             (Options.OpenOptions options) => HandleOpen(options),
             (Options.UseOptions options) => HandleUse(options),
@@ -142,51 +269,23 @@ public class Program {
             (Options.ListOptions options) => HandleList(options),
             (Options.DeleteOptions options) => HandleDelete(options),
             (Options.CdOptions options) => HandleCd(options),
+            (Options.HelpOptions options) => HandleHelp(options),
+            (Options.VersionOptions options) => HandleVersion(options),
             HandleParseError);
     }
     
-    static void PrintVersion() => Console.WriteLine("RemoteConnectionConsole version 1.0");
+    static void PrintVersion() => Console.WriteLine("RemoteConnectionConsole version " + CommandsHandler.VERSION);
+
+    static int HandleVersion(Options.VersionOptions options)
+    {
+        Console.WriteLine("You are currently using the amazing RemoteConnectionConsole version " + CommandsHandler.VERSION);
+        return 0;
+    }
     
     static int HandleParseError(IEnumerable<Error> errs)
     {
         foreach (var err in errs)
         {
-            if (err.Tag == ErrorType.HelpRequestedError)
-            {
-                PrintVersion();
-                Console.WriteLine();
-                Console.WriteLine("usage => RemoteConnectionConsole <...> (--help) (--version)");
-                Console.WriteLine();
-                Console.WriteLine(" OPTIONS:");
-                Console.WriteLine();
-                Console.WriteLine("  instance-file > A JSON or YAML file containing data about the instance");
-                Console.WriteLine("                -> host: <target host>");
-                Console.WriteLine("                -> username: <login username>");
-                Console.WriteLine("                -> password: <login password>");
-                Console.WriteLine("                -> port: <host port>");
-                Console.WriteLine("                !> Usually 22");
-                Console.WriteLine("                -> isKeyAuth: <boolean>");
-                Console.WriteLine("                !> If this is set to true, the password should contain the path of the key file in openssh format");
-                Console.WriteLine();
-                Console.WriteLine("  --redirect-stdin > The file that should replace the stdin stream");
-                Console.WriteLine();
-                Console.WriteLine("  --redirect-stdout > The file that should replace the stdout stream");
-                Console.WriteLine();
-                Console.WriteLine("  --redirect-stderr > The file that should replace the stderr stream");
-                Console.WriteLine();
-                Console.WriteLine("  --help > Display this help message");
-                Console.WriteLine();
-                Console.WriteLine("  --version > Display the current version");
-                Console.WriteLine();
-                Console.WriteLine("End of help");
-                continue;
-            }
-
-            if (err.Tag == ErrorType.VersionRequestedError)
-            {
-                PrintVersion();
-                continue;
-            }
             string message;
             switch (err.Tag)
             {
@@ -349,6 +448,37 @@ public class Program {
         instanceData.WorkingDirectory = sftpDriver.ChangeDirectory(options.Path!);
         instanceData.WriteToFile();
         Console.WriteLine($"Set new working directory to {instanceData.WorkingDirectory} for instance {instanceData.Path}");
+        return 0;
+    }
+
+    static int HandleHelp(Options.HelpOptions options)
+    {
+        PrintVersion();
+        Console.WriteLine();
+        
+        if (options.Cmd == null) CommandsHandler.PrintGeneralHelp();
+        else
+        {
+            switch (options.Cmd)
+            {
+                case "open": CommandsHandler.Open(); break;
+                case "help": CommandsHandler.Help(); break;
+                case "del": CommandsHandler.Delete(); break;
+                case "cd": CommandsHandler.ChangeDirectory(); break;
+                case "pull": CommandsHandler.Pull(); break;
+                case "push": CommandsHandler.Push(); break;
+                case "move": CommandsHandler.Move(); break;
+                case "copy": CommandsHandler.Copy(); break;
+                case "list": CommandsHandler.List(); break;
+                case "use": CommandsHandler.Use(); break;
+                case "version": CommandsHandler.Version(); break;
+                default: Error(6, "Unknown command"); break;
+            }
+        }
+        
+        Console.WriteLine();
+        Console.WriteLine("End of help");
+        
         return 0;
     }
 
