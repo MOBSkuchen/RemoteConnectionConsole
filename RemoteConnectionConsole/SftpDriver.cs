@@ -83,7 +83,7 @@ public class SftpDriver
         Console.Write(progress.ToString() + " of " + tot.ToString() + "    "); //blanks at the end remove any excess
     }
 
-    public bool Exists(string remotePath) => _sftpClient.Exists(remotePath);
+    private bool Exists(string remotePath) => _sftpClient.Exists(remotePath);
 
     public void Pull(string remotePath, string localPath, bool showProgress)
     {
@@ -200,6 +200,7 @@ public class SftpDriver
                 }
             }
         } catch (SftpPathNotFoundException exception) {}
+        catch (SftpPermissionDeniedException exception) {}
         size += file.Attributes.Size;
         return (size, searched);
     }
