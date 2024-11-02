@@ -254,6 +254,12 @@ public class Program {
         
         [Verb("version")]
         public class VersionOptions { }
+        
+        [Verb("exit")]
+        public class ExitOptions { }
+        
+        [Verb("refresh")]
+        public class RefreshOptions { }
     }
 
     static Parser _parser = null!;
@@ -265,7 +271,8 @@ public class Program {
     {
         var res = _parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, 
             Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions, Options.DeleteOptions, 
-            Options.CdOptions, Options.HelpOptions, Options.VersionOptions, Options.ConsoleOptions>(args);
+            Options.CdOptions, Options.HelpOptions, Options.VersionOptions, Options.ConsoleOptions, Options.ExitOptions, 
+            Options.RefreshOptions>(args);
         try
         {
             return res.MapResult(
@@ -281,6 +288,8 @@ public class Program {
                 (Options.HelpOptions options) => HandleHelp(options),
                 (Options.VersionOptions options) => HandleVersion(options),
                 (Options.ConsoleOptions options) => HandleConsole(options),
+                (Options.RefreshOptions options) => HandleRefresh(options),
+                (Options.ExitOptions options) => HandleExit(options),
                 HandleParseError);
         }
         catch (Exception e)
@@ -541,6 +550,18 @@ public class Program {
         return 0;
     }
 
+    static int HandleExit(Options.ExitOptions options) {
+        Environment.Exit(0);
+        return 0;
+    }
+    
+    static int HandleRefresh(Options.RefreshOptions options) {
+        _instanceData = null;
+        _sftpDriver = null;
+        GetSftpDriver(null);
+        return 0;
+    }
+
     static int HandleCd(Options.CdOptions options)
     {
         var sftpDriver = GetSftpDriver(options.Using);
@@ -568,7 +589,6 @@ public class Program {
             else Console.Write($"{_instanceData.Value.Username}@{_instanceData.Value.Host} {_instanceData.Value.WorkingDirectory} > ");
 
             string cmd = Console.ReadLine() ?? "exit";
-            if (cmd == "exit") return 0;
             if (cmd.StartsWith("console"))
             {
                 Console.WriteLine("Can not start console in a currently running console session!");
