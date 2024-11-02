@@ -87,7 +87,11 @@ public class SftpDriver
 
     public void Pull(string remotePath, string localPath, bool showProgress)
     {
-        if (!Exists(remotePath)) Program.Error(8, "Remote path does not exist");
+        if (!Exists(remotePath))
+        {
+            Program.Error(8, "Remote path does not exist");
+            return;
+        }
         int totalSize = (int) _sftpClient.GetAttributes(remotePath).Size;
         Stream localFileStream = File.OpenWrite(localPath);
         if (showProgress) _sftpClient.DownloadFile(remotePath, localFileStream, obj => { ProgressBar((int) obj, totalSize); });
@@ -105,7 +109,11 @@ public class SftpDriver
     
     public void Push(string localPath, string remotePath, bool showProgress)
     {
-        if (!File.Exists(localPath)) Program.Error(8, "Local path does not exist");
+        if (!File.Exists(localPath))
+        {
+            Program.Error(8, "Local path does not exist");
+            return;
+        }
         int totalSize = (int) new FileInfo(localPath).Length;
         Stream localFileStream = File.OpenRead(localPath);
         if (showProgress) _sftpClient.UploadFile(localFileStream, remotePath, obj => { ProgressBar((int) obj, totalSize); });
@@ -122,7 +130,11 @@ public class SftpDriver
 
     public void Move(string oldPath, string newPath, bool copy, bool showProgress)
     {
-        if (!Exists(oldPath)) Program.Error(8, "Remote path does not exist");
+        if (!Exists(oldPath))
+        {
+            Program.Error(8, "Remote path does not exist");
+            return;
+        }
         if (!copy)
         {
             _sftpClient.RenameFile(oldPath, newPath);
@@ -209,7 +221,11 @@ public class SftpDriver
 
     public void Delete(string remotePath)
     {
-        if (!Exists(remotePath)) Program.Error(8, "Remote path does not exist");
+        if (!Exists(remotePath))
+        {
+            Program.Error(8, "Remote path does not exist");
+            return;
+        }
         bool isDir = IsDir(remotePath);
         var gs = GetSize(remotePath);
         while (true)
@@ -229,9 +245,13 @@ public class SftpDriver
         Console.WriteLine($"Deleted {remotePath}");
     }
 
-    public string ChangeDirectory(string path)
+    public string? ChangeDirectory(string path)
     {
-        if (!Exists(path) || !_sftpClient.GetAttributes(path).IsDirectory) Program.Error(8, "Remote path does not exist or is not a directory");
+        if (!Exists(path) || !_sftpClient.GetAttributes(path).IsDirectory)
+        {
+            Program.Error(8, "Remote path does not exist or is not a directory");
+            return null;
+        }
         _sftpClient.ChangeDirectory(path);
         return _sftpClient.WorkingDirectory;
     }

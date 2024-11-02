@@ -318,20 +318,25 @@ public class Program {
         return 0;
     }
     
-    static SftpDriver GetSftpDriver(string? use)
+    static SftpDriver? GetSftpDriver(string? use)
     {
         if (_sftpDriver != null) return _sftpDriver;
         var instanceData = GetInstanceData(use);
-        var sftpDriver = new SftpDriver(instanceData);
+        if (instanceData == null) return null;
+        var sftpDriver = new SftpDriver(instanceData.Value);
         sftpDriver.Connect();
         _sftpDriver = sftpDriver;
         return sftpDriver;
     }
 
-    static InstanceData GetInstanceData(string? use)
+    static InstanceData? GetInstanceData(string? use)
     {
-        if (use == null) return (_instanceData ?? LoadCurrentlyUsed(null))!.Value;
-        return LoadCurrentlyUsed(use)!.Value;
+        if (use == null)
+        {
+            _instanceData = LoadCurrentlyUsed(null);
+            return _instanceData;
+        };
+        return LoadCurrentlyUsed(use);
     }
     
     public static void ClearCurrentConsoleLine()
@@ -399,6 +404,7 @@ public class Program {
                     break;
             }
             Error(6, $"Parser error: {message}");
+            return 6;
         }
 
         return 1;
@@ -414,18 +420,28 @@ public class Program {
         catch (Exception e)
         {
             Error(2, "Invalid config file");
+            return null;
         }
-        AssertHas(["host", "username", "password", "port", "isKeyAuth"], instData);
+
+        if (!AssertHas(["host", "username", "password", "port", "isKeyAuth"], instData)) return null;
 
         InstanceData? instanceData = InstanceData.ConvertToInstanceData(instData!, filePath);
-        if (instanceData == null) Error(2, "Invalid config file");
+        if (instanceData == null)
+        {
+            Error(2, "Invalid config file");
+            return null;
+        }
         return instanceData;
     }
 
     static InstanceData? LoadCurrentlyUsed(string? overwrite)
     {
         if (overwrite != null) return LoadInstance(overwrite);
-        if (!File.Exists(".rcc-used")) Error(7, "Not currently using any instance!");
+        if (!File.Exists(".rcc-used"))
+        {
+            Error(7, "Not currently using any instance!");
+            return null;
+        }
         return LoadInstance(File.ReadAllText(".rcc-used"));
     }
 
@@ -447,6 +463,7 @@ public class Program {
     static int HandlePull(Options.PullOptions options)
     {
         var sftpDriver = GetSftpDriver(options.Using);
+        if (sftpDriver == null) return -1;
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
         sftpDriver.Pull(options.InputFile!, outputPath, options.Progress == 0);
         return 0;
@@ -455,6 +472,7 @@ public class Program {
     static int HandlePush(Options.PushOptions options)
     {
         var sftpDriver = GetSftpDriver(options.Using);
+        if (sftpDriver == null) return -1;
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
         sftpDriver.Push(options.InputFile!, outputPath, options.Progress == 0);
         return 0;
@@ -463,6 +481,7 @@ public class Program {
     static int HandleMove(Options.MoveOptions options)
     {
         var sftpDriver = GetSftpDriver(options.Using);
+        if (sftpDriver == null) return -1;
         sftpDriver.Move(options.InputFile!, options.TargetFile!, false, false);
         return 0;
     }
@@ -470,6 +489,7 @@ public class Program {
     static int HandleCopy(Options.CopyOptions options)
     {
         var sftpDriver = GetSftpDriver(options.Using);
+        if (sftpDriver == null) return -1;
         sftpDriver.Move(options.InputFile!, options.TargetFile!, true, options.Progress == 0);
         return 0;
     }
@@ -477,6 +497,7 @@ public class Program {
     static int HandleList(Options.ListOptions options)
     {
         var sftpDriver = GetSftpDriver(options.Using);
+        if (sftpDriver == null) return -1;
         sftpDriver.List();
         return 0;
     }
@@ -484,6 +505,7 @@ public class Program {
     static int HandleDelete(Options.DeleteOptions options)
     {
         var sftpDriver = GetSftpDriver(options.Using);
+        if (sftpDriver == null) return -1;
         sftpDriver.Delete(options.InputFile!);
         return 0;
     }
@@ -491,8 +513,10 @@ public class Program {
     static int HandleCd(Options.CdOptions options)
     {
         var sftpDriver = GetSftpDriver(options.Using);
+        if (sftpDriver == null) return -1;
         sftpDriver.InstanceData.WorkingDirectory = sftpDriver.ChangeDirectory(options.Path!);
         sftpDriver.InstanceData.WriteToFile();
+        _instanceData = sftpDriver.InstanceData;
         Console.WriteLine($"Set new working directory to {sftpDriver.InstanceData.WorkingDirectory} for instance {sftpDriver.InstanceData.Path}");
         return 0;
     }
@@ -500,6 +524,7 @@ public class Program {
     static int HandleConsole(Options.ConsoleOptions options)
     {
         if (options.Using != null) GetInstanceData(options.Using);
+        if (File.Exists(".rcc-used")) GetInstanceData(null);
         HardError = false;
         while (true)
         {
@@ -538,7 +563,7 @@ public class Program {
                 case "list": CommandsHandler.List(); break;
                 case "use": CommandsHandler.Use(); break;
                 case "version": CommandsHandler.Version(); break;
-                default: Error(6, "Unknown command"); break;
+                default: Error(6, "Unknown command"); return 6;
             }
         }
         
@@ -581,14 +606,17 @@ public class Program {
         catch (System.Net.Sockets.SocketException e)
         {
             Error(4, "Host could not be reached");
+            return 4;
         }
         catch (SshAuthenticationException e)
         {
             Error(5, "Authentication failed");
+            return 5;
         }
         catch (Exception e)
         {
             Error(-1, "Unexpected exception:\n" + e);
+            return -1;
         }
         finally
         {
@@ -602,20 +630,25 @@ public class Program {
         if (path.EndsWith(".json")) return JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(path));
         if (path.EndsWith(".yml")) return new Deserializer().Deserialize<Dictionary<string, string>>(File.ReadAllText(path));
         Error(3, "Invalid file type. Supported are .json & .yml!");
-        return new Dictionary<string, string>();
+        return null;
     }
     
-    static void AssertHas(String[] fields, Dictionary<string, string>? dict)
+    static bool AssertHas(String[] fields, Dictionary<string, string>? dict)
     {
         if (dict == null)
         {
             Error(2, "Invalid config file!");
-            return;
+            return false;
         }
         foreach (var field in fields)
         {
-            if (!dict.ContainsKey(field)) Error(2, "Invalid config file!");
+            if (!dict.ContainsKey(field))
+            {
+                Error(2, "Invalid config file!");
+                return false;
+            }
         }
+        return true;
     }
 
     public static void Error(int err, String msg, bool forceExit = false)
