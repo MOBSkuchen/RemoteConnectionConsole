@@ -256,22 +256,36 @@ public class Program {
             settings.AutoHelp = false;
             settings.AutoVersion = false;
         });
+        Console.CancelKeyPress += delegate
+        {
+            Console.WriteLine("Aborted");
+            Environment.Exit(0);
+        };
         var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, 
             Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions, Options.DeleteOptions, 
             Options.CdOptions, Options.HelpOptions, Options.VersionOptions>(args);
-        return res.MapResult(
-            (Options.OpenOptions options) => HandleOpen(options),
-            (Options.UseOptions options) => HandleUse(options),
-            (Options.PullOptions options) => HandlePull(options),
-            (Options.PushOptions options) => HandlePush(options),
-            (Options.MoveOptions options) => HandleMove(options),
-            (Options.CopyOptions options) => HandleCopy(options),
-            (Options.ListOptions options) => HandleList(options),
-            (Options.DeleteOptions options) => HandleDelete(options),
-            (Options.CdOptions options) => HandleCd(options),
-            (Options.HelpOptions options) => HandleHelp(options),
-            (Options.VersionOptions options) => HandleVersion(options),
-            HandleParseError);
+        try
+        {
+            return res.MapResult(
+                (Options.OpenOptions options) => HandleOpen(options),
+                (Options.UseOptions options) => HandleUse(options),
+                (Options.PullOptions options) => HandlePull(options),
+                (Options.PushOptions options) => HandlePush(options),
+                (Options.MoveOptions options) => HandleMove(options),
+                (Options.CopyOptions options) => HandleCopy(options),
+                (Options.ListOptions options) => HandleList(options),
+                (Options.DeleteOptions options) => HandleDelete(options),
+                (Options.CdOptions options) => HandleCd(options),
+                (Options.HelpOptions options) => HandleHelp(options),
+                (Options.VersionOptions options) => HandleVersion(options),
+                HandleParseError);
+        }
+        catch (Exception e)
+        {
+            Error(-1, $"Unexpected exception: {e}");
+        }
+
+        return 0;
     }
     
     static void PrintVersion() => Console.WriteLine("RemoteConnectionConsole version " + CommandsHandler.VERSION);
