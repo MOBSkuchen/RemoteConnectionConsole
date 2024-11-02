@@ -98,17 +98,20 @@ public static class CommandsHandler
     public static void PrintGeneralHelp()
     {
         Console.WriteLine("Available Commands:");
-        Console.WriteLine("  open       - Open Remote Console Session");
+        Console.WriteLine("  open       - Open Remote Console");
         Console.WriteLine("  use        - Select instance to be used further");
+        Console.WriteLine("  console    - Start persistent console session");
         Console.WriteLine("  pull       - Pull file from remote");
         Console.WriteLine("  push       - Push file to remote");
         Console.WriteLine("  move       - Move remote file");
         Console.WriteLine("  copy       - Copy remote file");
         Console.WriteLine("  del        - Delete remote file");
-        Console.WriteLine("  list       - List CWD");
+        Console.WriteLine("  list       - List CWD entries");
         Console.WriteLine("  cd         - Change CWD for an instance");
-        Console.WriteLine("  help       - Print help [about a command]");
-        Console.WriteLine("  --version  - Print version");
+        Console.WriteLine("  help       - Print help");
+        Console.WriteLine("  version    - Print version");
+        Console.WriteLine("  refresh    - Refresh");
+        Console.WriteLine("  exit       - Exit");
         Console.WriteLine("\nUse 'RemoteConnectionConsole help <name>' to get detailed options for each command.");
     }
 
@@ -117,6 +120,25 @@ public static class CommandsHandler
         Console.WriteLine("Command: help - Get help");
         Console.WriteLine("Options:");
         Console.WriteLine("  command               Command to learn about (optional)");
+    }
+    
+    public static void Exit()
+    {
+        Console.WriteLine("Command: exit - Exit console session");
+        Console.WriteLine("Options: None");
+    }
+    
+    public static void Refresh()
+    {
+        Console.WriteLine("Command: refresh - Refresh instance settings SSH connections");
+        Console.WriteLine("Options: None");
+    }
+    
+    public static void Console_()
+    {
+        Console.WriteLine("Command: console - Start persistent session to execute commands without reinitializing");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
     }
 }
 
@@ -619,6 +641,9 @@ public class Program {
                 case "list": CommandsHandler.List(); break;
                 case "use": CommandsHandler.Use(); break;
                 case "version": CommandsHandler.Version(); break;
+                case "refresh": CommandsHandler.Refresh(); break;
+                case "console": CommandsHandler.Console_(); break;
+                case "exit": CommandsHandler.Exit(); break;
                 default: Error(6, "Unknown command"); return 6;
             }
         }
