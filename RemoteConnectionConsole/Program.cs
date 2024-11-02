@@ -605,12 +605,14 @@ public class Program {
         if (options.Using != null) GetInstanceData(options.Using);
         if (File.Exists(".rcc-used")) GetInstanceData(null);
         HardError = false;
+        Console.Clear();
         while (true)
         {
             if (_instanceData == null) Console.Write("None > ");
             else Console.Write($"{_instanceData.Value.Username}@{_instanceData.Value.Host} {_instanceData.Value.WorkingDirectory} > ");
 
             string cmd = Console.ReadLine() ?? "exit";
+            if (cmd.StartsWith("exit")) Console.Clear();
             if (cmd.StartsWith("console"))
             {
                 Console.WriteLine("Can not start console in a currently running console session!");
