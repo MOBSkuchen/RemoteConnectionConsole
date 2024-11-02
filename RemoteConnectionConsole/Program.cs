@@ -467,7 +467,15 @@ public class Program {
         var sftpDriver = GetSftpDriver(options.Using);
         if (sftpDriver == null) return -1;
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
-        sftpDriver.Pull(options.InputFile!, outputPath, options.Progress == 0);
+        try
+        {
+            sftpDriver.Pull(options.InputFile!, outputPath, options.Progress == 0);
+        }
+        catch (SftpPermissionDeniedException e)
+        {
+            Error(8, "Permission denied");
+        }
+
         return 0;
     }
     
@@ -476,7 +484,12 @@ public class Program {
         var sftpDriver = GetSftpDriver(options.Using);
         if (sftpDriver == null) return -1;
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
-        sftpDriver.Push(options.InputFile!, outputPath, options.Progress == 0);
+        try {
+            sftpDriver.Push(options.InputFile!, outputPath, options.Progress == 0);
+        } catch (SftpPermissionDeniedException e)
+        {
+            Error(8, "Permission denied");
+        }
         return 0;
     }
     
@@ -484,7 +497,12 @@ public class Program {
     {
         var sftpDriver = GetSftpDriver(options.Using);
         if (sftpDriver == null) return -1;
-        sftpDriver.Move(options.InputFile!, options.TargetFile!, false, false);
+        try {
+            sftpDriver.Move(options.InputFile!, options.TargetFile!, false, false);
+        } catch (SftpPermissionDeniedException e)
+        {
+            Error(8, "Permission denied");
+        }
         return 0;
     }
     
@@ -492,7 +510,13 @@ public class Program {
     {
         var sftpDriver = GetSftpDriver(options.Using);
         if (sftpDriver == null) return -1;
-        sftpDriver.Move(options.InputFile!, options.TargetFile!, true, options.Progress == 0);
+        try
+        {
+            sftpDriver.Move(options.InputFile!, options.TargetFile!, true, options.Progress == 0);
+        } catch (SftpPermissionDeniedException e)
+        {
+            Error(8, "Permission denied");
+        }
         return 0;
     }
     
@@ -508,7 +532,12 @@ public class Program {
     {
         var sftpDriver = GetSftpDriver(options.Using);
         if (sftpDriver == null) return -1;
-        sftpDriver.Delete(options.InputFile!);
+        try {
+            sftpDriver.Delete(options.InputFile!);
+        } catch (SftpPermissionDeniedException e)
+        {
+            Error(8, "Permission denied");
+        }
         return 0;
     }
 
@@ -516,7 +545,12 @@ public class Program {
     {
         var sftpDriver = GetSftpDriver(options.Using);
         if (sftpDriver == null) return -1;
-        sftpDriver.InstanceData.WorkingDirectory = sftpDriver.ChangeDirectory(options.Path!);
+        try {
+            sftpDriver.InstanceData.WorkingDirectory = sftpDriver.ChangeDirectory(options.Path!);
+        } catch (SftpPermissionDeniedException e)
+        {
+            Error(8, "Permission denied");
+        }
         sftpDriver.InstanceData.WriteToFile();
         _instanceData = sftpDriver.InstanceData;
         Console.WriteLine($"Set new working directory to {sftpDriver.InstanceData.WorkingDirectory} for instance {sftpDriver.InstanceData.Path}");
