@@ -237,6 +237,13 @@ public class Program {
             [Option('u', "use", HelpText = "Temporarily use an instance")]
             public string? Using { get; set; }
         }
+        
+        [Verb("console", HelpText = "Open persistent session")]
+        public class ConsoleOptions
+        {
+            [Option('u', "use", HelpText = "Temporarily use an instance")]
+            public string? Using { get; set; }
+        }
 
         [Verb("help", HelpText = "Get help")]
         public class HelpOptions
@@ -248,22 +255,17 @@ public class Program {
         [Verb("version")]
         public class VersionOptions { }
     }
-    public static int Main(String[] args)
+
+    static Parser _parser = null!;
+
+    private static InstanceData? _instanceData;
+    private static SftpDriver? _sftpDriver;
+
+    static int ParseArguments(String[] args)
     {
-        var parser = new Parser(settings =>
-        {
-            settings.HelpWriter = null;
-            settings.AutoHelp = false;
-            settings.AutoVersion = false;
-        });
-        Console.CancelKeyPress += delegate
-        {
-            Console.WriteLine("Aborted");
-            Environment.Exit(0);
-        };
-        var res = parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, 
+        var res = _parser.ParseArguments<Options.UseOptions, Options.OpenOptions, Options.PullOptions, 
             Options.PushOptions, Options.MoveOptions, Options.CopyOptions, Options.ListOptions, Options.DeleteOptions, 
-            Options.CdOptions, Options.HelpOptions, Options.VersionOptions>(args);
+            Options.CdOptions, Options.HelpOptions, Options.VersionOptions, Options.ConsoleOptions>(args);
         try
         {
             return res.MapResult(
@@ -278,14 +280,34 @@ public class Program {
                 (Options.CdOptions options) => HandleCd(options),
                 (Options.HelpOptions options) => HandleHelp(options),
                 (Options.VersionOptions options) => HandleVersion(options),
+                (Options.ConsoleOptions options) => HandleConsole(options),
                 HandleParseError);
         }
         catch (Exception e)
         {
-            Error(-1, $"Unexpected exception: {e}");
+            Error(-1, $"Unexpected exception: {e}", true);
         }
 
         return 0;
+    }
+
+    public static bool HardError = true;
+    
+    public static int Main(String[] args)
+    {
+        _parser = new Parser(settings =>
+        {
+            settings.HelpWriter = null;
+            settings.AutoHelp = false;
+            settings.AutoVersion = false;
+        });
+        Console.CancelKeyPress += delegate
+        {
+            Console.WriteLine("Aborted");
+            Environment.Exit(0);
+        };
+
+        return ParseArguments(args);
     }
     
     static void PrintVersion() => Console.WriteLine("RemoteConnectionConsole version " + CommandsHandler.VERSION);
@@ -294,6 +316,22 @@ public class Program {
     {
         Console.WriteLine("You are currently using the amazing RemoteConnectionConsole version " + CommandsHandler.VERSION);
         return 0;
+    }
+    
+    static SftpDriver GetSftpDriver(string? use)
+    {
+        if (_sftpDriver != null) return _sftpDriver;
+        var instanceData = GetInstanceData(use);
+        var sftpDriver = new SftpDriver(instanceData);
+        sftpDriver.Connect();
+        _sftpDriver = sftpDriver;
+        return sftpDriver;
+    }
+
+    static InstanceData GetInstanceData(string? use)
+    {
+        if (use == null) return (_instanceData ?? LoadCurrentlyUsed(null))!.Value;
+        return LoadCurrentlyUsed(use)!.Value;
     }
     
     public static void ClearCurrentConsoleLine()
@@ -408,9 +446,7 @@ public class Program {
 
     static int HandlePull(Options.PullOptions options)
     {
-        var instanceData = LoadCurrentlyUsed(options.Using);
-        var sftpDriver = new SftpDriver(instanceData!.Value);
-        sftpDriver.Connect();
+        var sftpDriver = GetSftpDriver(options.Using);
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
         sftpDriver.Pull(options.InputFile!, outputPath, options.Progress == 0);
         return 0;
@@ -418,9 +454,7 @@ public class Program {
     
     static int HandlePush(Options.PushOptions options)
     {
-        var instanceData = LoadCurrentlyUsed(options.Using);
-        var sftpDriver = new SftpDriver(instanceData!.Value);
-        sftpDriver.Connect();
+        var sftpDriver = GetSftpDriver(options.Using);
         var outputPath = options.Output ?? Path.GetFileName(options.InputFile!);
         sftpDriver.Push(options.InputFile!, outputPath, options.Progress == 0);
         return 0;
@@ -428,49 +462,59 @@ public class Program {
     
     static int HandleMove(Options.MoveOptions options)
     {
-        var instanceData = LoadCurrentlyUsed(options.Using);
-        var sftpDriver = new SftpDriver(instanceData!.Value);
-        sftpDriver.Connect();
+        var sftpDriver = GetSftpDriver(options.Using);
         sftpDriver.Move(options.InputFile!, options.TargetFile!, false, false);
         return 0;
     }
     
     static int HandleCopy(Options.CopyOptions options)
     {
-        var instanceData = LoadCurrentlyUsed(options.Using);
-        var sftpDriver = new SftpDriver(instanceData!.Value);
-        sftpDriver.Connect();
+        var sftpDriver = GetSftpDriver(options.Using);
         sftpDriver.Move(options.InputFile!, options.TargetFile!, true, options.Progress == 0);
         return 0;
     }
     
     static int HandleList(Options.ListOptions options)
     {
-        var instanceData = LoadCurrentlyUsed(options.Using);
-        var sftpDriver = new SftpDriver(instanceData!.Value);
-        sftpDriver.Connect();
+        var sftpDriver = GetSftpDriver(options.Using);
         sftpDriver.List();
         return 0;
     }
     
     static int HandleDelete(Options.DeleteOptions options)
     {
-        var instanceData = LoadCurrentlyUsed(options.Using);
-        var sftpDriver = new SftpDriver(instanceData!.Value);
-        sftpDriver.Connect();
+        var sftpDriver = GetSftpDriver(options.Using);
         sftpDriver.Delete(options.InputFile!);
         return 0;
     }
 
     static int HandleCd(Options.CdOptions options)
     {
-        var instanceData = LoadCurrentlyUsed(options.Using)!.Value;
-        var sftpDriver = new SftpDriver(instanceData);
-        sftpDriver.Connect();
-        instanceData.WorkingDirectory = sftpDriver.ChangeDirectory(options.Path!);
-        instanceData.WriteToFile();
-        Console.WriteLine($"Set new working directory to {instanceData.WorkingDirectory} for instance {instanceData.Path}");
+        var sftpDriver = GetSftpDriver(options.Using);
+        sftpDriver.InstanceData.WorkingDirectory = sftpDriver.ChangeDirectory(options.Path!);
+        sftpDriver.InstanceData.WriteToFile();
+        Console.WriteLine($"Set new working directory to {sftpDriver.InstanceData.WorkingDirectory} for instance {sftpDriver.InstanceData.Path}");
         return 0;
+    }
+
+    static int HandleConsole(Options.ConsoleOptions options)
+    {
+        if (options.Using != null) GetInstanceData(options.Using);
+        HardError = false;
+        while (true)
+        {
+            if (_instanceData == null) Console.Write("None > ");
+            else Console.Write($"{_instanceData.Value.Username}@{_instanceData.Value.Host} {_instanceData.Value.WorkingDirectory} > ");
+
+            string cmd = Console.ReadLine() ?? "exit";
+            if (cmd == "exit") return 0;
+            if (cmd.StartsWith("console"))
+            {
+                Console.WriteLine("Can not start console in a currently running console session!");
+                continue;
+            }
+            ParseArguments(cmd.SplitArgs());
+        }
     }
 
     static int HandleHelp(Options.HelpOptions options)
@@ -574,9 +618,9 @@ public class Program {
         }
     }
 
-    public static void Error(int err, String msg)
+    public static void Error(int err, String msg, bool forceExit = false)
     {
         Console.WriteLine($"Error ({err}) : {msg}");
-        Environment.Exit(err);
+        if (HardError || forceExit)Environment.Exit(err);
     }
 }

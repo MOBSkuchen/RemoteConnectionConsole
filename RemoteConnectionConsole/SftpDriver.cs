@@ -8,7 +8,7 @@ namespace RemoteConnectionConsole;
 public class SftpDriver
 {
     private readonly SftpClient _sftpClient;
-    private readonly InstanceData _instanceData;
+    public InstanceData InstanceData;
 
     public SftpDriver(InstanceData instanceData)
     {
@@ -20,13 +20,13 @@ public class SftpDriver
             _sftpClient = new SftpClient(instanceData.Host, instanceData.Port, instanceData.Username,
                 new PrivateKeyFile(instanceData.Password));
         }
-        _instanceData = instanceData;
+        InstanceData = instanceData;
     }
 
     public void Connect()
     {
         _sftpClient.Connect();
-        _sftpClient.ChangeDirectory(_instanceData.WorkingDirectory);
+        _sftpClient.ChangeDirectory(InstanceData.WorkingDirectory);
     }
 
     public void Dispose()
