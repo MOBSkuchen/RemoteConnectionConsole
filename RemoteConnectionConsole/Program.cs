@@ -451,9 +451,11 @@ public class Program {
         {
             File.Delete(".rcc-used");
             Console.WriteLine("Using: None");
+            _instanceData = null;
         } else
         {
-            LoadInstance(options.InputFile!);
+            _instanceData = LoadInstance(options.InputFile!);
+            GetSftpDriver(null);
             File.WriteAllText(".rcc-used", Path.GetFullPath(options.InputFile!));
             Console.WriteLine($"Using: {options.InputFile}");
         }
