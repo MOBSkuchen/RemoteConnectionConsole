@@ -1,5 +1,6 @@
 # RemoteConnectionConsole
 is a console application for windows - similar to PuTTY - which allows a user to remotely run commands on another computer using SSH
+It also supports SFTP, for example a user may transfer files, delete, copy or move and list files on the remote.
 ## Why
 There really is not a good reason for this.
 I just didn't like the console in which PuTTY runs that much and could not find a way to change it.
