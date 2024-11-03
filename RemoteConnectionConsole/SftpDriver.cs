@@ -69,9 +69,6 @@ public class SftpDriver
             Console.Write("=");
         }
 
-        Console.CursorLeft -= 1;
-        Console.Write(">");
-
         //draw unfilled part
         for (int i = position; i <= 31; i++)
         {
@@ -85,6 +82,35 @@ public class SftpDriver
     }
 
     private bool Exists(string remotePath) => _sftpClient.Exists(remotePath);
+    
+    void DownloadDirectory(string sourceRemotePath, string destLocalPath, bool showProgress) {
+        Directory.CreateDirectory(destLocalPath);
+        IEnumerable<SftpFile> files = _sftpClient.ListDirectory(sourceRemotePath);
+        foreach (SftpFile file in files)
+        {
+            if ((file.Name != ".") && (file.Name != ".."))
+            {
+                string sourceFilePath = sourceRemotePath + "/" + file.Name;
+                string destFilePath = Path.Combine(destLocalPath, file.Name);
+                Console.WriteLine($"Pulling {sourceFilePath} to {destFilePath}");
+                if (file.IsDirectory)
+                {
+                    DownloadDirectory(sourceFilePath, destFilePath, showProgress);
+                }
+                else
+                {
+                    int totalSize = (int) _sftpClient.GetAttributes(sourceFilePath).Size;
+                    using Stream fileStream = File.Create(destFilePath);
+                    if (showProgress) _sftpClient.DownloadFile(sourceFilePath, fileStream,
+                        obj => { ProgressBar((int) obj, totalSize); });
+                    else _sftpClient.DownloadFile(sourceFilePath, fileStream);
+                }
+                Program.ClearCurrentConsoleLine();
+                Console.CursorTop -= 1;
+                Program.ClearCurrentConsoleLine();
+            }
+        }
+    }
 
     public void Pull(string remotePath, string localPath, bool showProgress)
     {
@@ -94,18 +120,28 @@ public class SftpDriver
             Program.Error(8, "Remote path does not exist");
             return;
         }
-        int totalSize = (int) _sftpClient.GetAttributes(remotePath).Size;
-        Stream localFileStream = File.OpenWrite(localPath);
-        if (showProgress) _sftpClient.DownloadFile(remotePath, localFileStream, obj => { ProgressBar((int) obj, totalSize); });
-        else _sftpClient.DownloadFile(remotePath, localFileStream);
-        localFileStream.Flush();
-        localFileStream.Close();
-        localFileStream.Dispose();
-        if (showProgress)
+        
+        if (File.Exists(localPath) || Directory.Exists(localPath))
         {
-            Console.CursorLeft = 0;
-            Console.Write("\n");
+            Program.Error(9, "New local path already exists");
+            return;
         }
+
+        if (IsDir(remotePath))
+        {
+            DownloadDirectory(remotePath, localPath, showProgress);
+        }
+        else
+        {
+            int totalSize = (int) _sftpClient.GetAttributes(remotePath).Size;
+            Stream localFileStream = File.OpenWrite(localPath);
+            if (showProgress) _sftpClient.DownloadFile(remotePath, localFileStream, obj => { ProgressBar((int) obj, totalSize); });
+            else _sftpClient.DownloadFile(remotePath, localFileStream);
+            localFileStream.Flush();
+            localFileStream.Close();
+            localFileStream.Dispose();
+        }
+        Program.ClearCurrentConsoleLine();
         Console.WriteLine($"Pulled {remotePath} to {localPath}");
         if (showProgress) Console.CursorVisible = true;
     }
