@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using Microsoft.VisualBasic;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
@@ -107,24 +108,71 @@ public class SftpDriver
         Console.WriteLine($"Pulled {remotePath} to {localPath}");
     }
     
+    void UploadFile(string localPath, string remotePath, bool showProgress)
+    {
+        if (Exists(remotePath))
+        {
+            Console.WriteLine($"Skipping {localPath}, because it already exists");
+            return;
+        }
+        remotePath = remotePath.Replace('\\', '/');
+        localPath = localPath.Replace('\\', '/');
+        Console.WriteLine($"Uploading {localPath} to {remotePath}");
+        int totalSize = (int) new FileInfo(localPath).Length;
+        Stream localFileStream = File.OpenRead(localPath);
+        if (showProgress)
+            _sftpClient.UploadFile(localFileStream, remotePath, obj => { ProgressBar((int) obj, totalSize); });
+        else 
+            _sftpClient.UploadFile(localFileStream, remotePath);
+        localFileStream.Close();
+        localFileStream.Dispose();
+        Program.ClearCurrentConsoleLine();
+        Console.CursorTop -= 1;
+        Program.ClearCurrentConsoleLine();
+    }
+    
+    void UploadDir(string localPath, string remotePath, bool showProgress)
+    {
+        if (Exists(remotePath))
+        {
+            Console.WriteLine($"Skipping {localPath}, because it already exists");
+            return;
+        }
+        _sftpClient.CreateDirectory(remotePath);
+        remotePath = remotePath.Replace('\\', '/');
+        localPath = localPath.Replace('\\', '/');
+        
+        Console.WriteLine($"Uploading {localPath} to {remotePath}");
+        
+        foreach (var dirEntry in Directory.GetDirectories(localPath))
+        {
+            UploadDir(dirEntry.Replace('\\', '/'), dirEntry.Replace('\\', '/'), showProgress);
+        }
+        
+        foreach (var dirEntry in Directory.GetFiles(localPath))
+        {
+            UploadFile(dirEntry.Replace('\\', '/'), Path.Combine(remotePath, Path.GetRelativePath(localPath, dirEntry.Replace('\\', '/'))), showProgress);
+        }
+        
+        Program.ClearCurrentConsoleLine();
+        Console.CursorTop -= 1;
+        Program.ClearCurrentConsoleLine();
+    }
+    
     public void Push(string localPath, string remotePath, bool showProgress)
     {
-        if (!File.Exists(localPath))
+        if (!File.Exists(localPath) && !Directory.Exists(localPath))
         {
             Program.Error(8, "Local path does not exist");
             return;
         }
-        int totalSize = (int) new FileInfo(localPath).Length;
-        Stream localFileStream = File.OpenRead(localPath);
-        if (showProgress) _sftpClient.UploadFile(localFileStream, remotePath, obj => { ProgressBar((int) obj, totalSize); });
-        else _sftpClient.UploadFile(localFileStream, remotePath);
-        localFileStream.Close();
-        localFileStream.Dispose();
-        if (showProgress)
-        {
-            Console.CursorLeft = 0;
-            Console.Write("\n");
-        }
+
+        remotePath = Path.Combine(_sftpClient.WorkingDirectory, remotePath);
+        remotePath = remotePath.Replace('\\', '/');
+
+        if (File.GetAttributes(localPath).HasFlag(FileAttributes.Directory)) UploadDir(localPath, remotePath, showProgress);
+        else UploadFile(localPath, remotePath, showProgress);
+        if (showProgress) Program.ClearCurrentConsoleLine();
         Console.WriteLine($"Pushed {localPath} to {remotePath}");
     }
 
@@ -218,9 +266,31 @@ public class SftpDriver
     }
 
     (long, int) GetSize(string remotePath) => GetSize(_sftpClient.Get(remotePath));
+    
+    void DeleteDirectory(string path)
+    {
+        foreach (SftpFile file in _sftpClient.ListDirectory(path))
+        {
+            if ((file.Name != ".") && (file.Name != ".."))
+            {
+                if (file.IsDirectory)
+                {
+                    DeleteDirectory(file.FullName);
+                }
+                else
+                {
+                    _sftpClient.DeleteFile(file.FullName);
+                }
+            }
+        }
+
+        _sftpClient.DeleteDirectory(path);
+    }
 
     public void Delete(string remotePath)
     {
+        remotePath = Path.Combine(_sftpClient.WorkingDirectory, remotePath);
+        remotePath = remotePath.Replace('\\', '/');
         if (!Exists(remotePath))
         {
             Program.Error(8, "Remote path does not exist");
@@ -241,7 +311,8 @@ public class SftpDriver
                 return;
             }
         }
-        _sftpClient.Delete(remotePath);
+        if (isDir) DeleteDirectory(remotePath);
+        else _sftpClient.Delete(remotePath);
         Console.WriteLine($"Deleted {remotePath}");
     }
 

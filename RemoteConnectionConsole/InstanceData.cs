@@ -29,7 +29,7 @@ public struct InstanceData(
         
     }
 
-    public Dictionary<string, string> ConvertToDictionary()
+    private Dictionary<string, string> ConvertToDictionary()
     {
         Dictionary<string, string> newDict = new()
         {
