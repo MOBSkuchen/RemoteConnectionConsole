@@ -71,7 +71,24 @@ public class RemoteConsoleDriver
         _shell.Dispose();
         _sshClient.Dispose();
     }
-    
+
+    public int Copy(string oldPath, string newPath)
+    {
+        var cmd = _sshClient.CreateCommand($"cp {oldPath} {newPath} -r");
+        Console.WriteLine("Pending...");
+        var e = cmd.Execute();
+
+        Console.CursorTop -= 1;
+        Program.ClearCurrentConsoleLine();
+
+        byte[] buffer = new byte[cmd.OutputStream.Length];
+        var read = cmd.OutputStream.Read(buffer);
+        var charBuffer = Console.Out.Encoding.GetChars(buffer, 0, read);
+        Console.Out.Write(charBuffer, 0, read);
+
+        return cmd.ExitStatus;
+    }
+
     public void Close() {
         if (RedirectedStdin != null) RedirectedStdin.Close();
         if (RedirectedStdout != null) RedirectedStdout.Close();

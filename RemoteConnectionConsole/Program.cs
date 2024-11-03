@@ -7,7 +7,7 @@ namespace RemoteConnectionConsole;
 
 public static class CommandsHandler
 {
-    public const string VERSION = "2.3";
+    public const string VERSION = "2.4";
     
     public static void Open()
     {
@@ -68,6 +68,7 @@ public static class CommandsHandler
         Console.WriteLine("Options:");
         Console.WriteLine("  old-file              Old remote file (required)");
         Console.WriteLine("  new-file              New remote file (required)");
+        Console.WriteLine("  -f, --fast            Fast mode. Uses the 'cp' command (optional)");
         Console.WriteLine("  -p, --progress        Do not show progress bar (optional)");
         Console.WriteLine("  -u, --use             Temporarily use an instance (optional)");
     }
@@ -224,6 +225,9 @@ public class Program {
             
             [Value(2, MetaName = "new-file", Required = true, HelpText = "New remote file")]
             public string? TargetFile { get; set; }
+            
+            [Option('f', "fast", Required = false, FlagCounter = true)]
+            public int Fast { get; set; }
             
             [Option('p', "progress", Required = false, FlagCounter = true, HelpText = "Do not show progress bar")]
             public int Progress { get; set; }
@@ -539,6 +543,37 @@ public class Program {
     
     static int HandleCopy(Options.CopyOptions options)
     {
+        if (options.Fast != 0)
+        {
+            var instanceData = LoadCurrentlyUsed(options.Using);
+        
+            RemoteConsoleDriver remoteConsoleDriver = new RemoteConsoleDriver(instanceData!.Value);
+            
+            try
+            {
+                remoteConsoleDriver.Connect(true);
+                return remoteConsoleDriver.Copy(options.InputFile!, options.TargetFile!);
+            }
+            catch (System.Net.Sockets.SocketException e)
+            {
+                Error(4, "Host could not be reached");
+                return 4;
+            }
+            catch (SshAuthenticationException e)
+            {
+                Error(5, "Authentication failed");
+                return 5;
+            }
+            catch (Exception e)
+            {
+                Error(-1, "Unexpected exception:\n" + e);
+                return -1;
+            }
+            finally
+            {
+                remoteConsoleDriver.Close();
+            }
+        }
         var sftpDriver = GetSftpDriver(options.Using);
         if (sftpDriver == null) return -1;
         try
@@ -738,6 +773,10 @@ public class Program {
     {
         Console.CursorVisible = true;
         Console.WriteLine($"Error ({err}) : {msg}");
-        if (HardError || forceExit)Environment.Exit(err);
+        if (HardError || forceExit)
+        {
+            Console.Clear();
+            Environment.Exit(err);
+        }
     }
 }

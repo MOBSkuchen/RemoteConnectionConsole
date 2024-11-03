@@ -256,11 +256,8 @@ public class SftpDriver
                     CopyFile(oldP, newPath, showProgress);
                 }
             }
-            if (showProgress)
-            {
-                Program.ClearCurrentConsoleLine();
-                Console.CursorTop -= 1;
-            }
+            Program.ClearCurrentConsoleLine();
+            Console.CursorTop -= 1;
             Program.ClearCurrentConsoleLine();
         }
     }
