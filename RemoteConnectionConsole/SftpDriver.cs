@@ -176,11 +176,68 @@ public class SftpDriver
         Console.WriteLine($"Pushed {localPath} to {remotePath}");
     }
 
+    void CopyFile(string oldPath, string newPath, bool showProgress)
+    {
+        Console.WriteLine(oldPath + " " + newPath);
+        var reader = _sftpClient.OpenRead(oldPath);
+        var writer = _sftpClient.OpenWrite(newPath);
+        var target = reader.Length;
+        var completed = 0;
+        while (target > completed)
+        {
+            byte[] buffer = new byte[1024];
+            var read = reader.Read(buffer);
+            completed += read;
+            writer.Write(buffer, 0, read);
+            if (showProgress) ProgressBar(completed, (int) target);
+        }
+    }
+    
+    void CopyDirectory(string newpath, string oldPath, bool showProgress)
+    {
+        string newPath;
+        string oldP;
+        Console.WriteLine(oldPath);
+        _sftpClient.CreateDirectory(newpath);
+        foreach (SftpFile file in _sftpClient.ListDirectory(oldPath))
+        {
+            newPath = Path.Join(newpath, file.Name).Replace('\\', '/');
+            oldP = Path.Join(oldPath, file.Name).Replace('\\', '/');
+            Console.WriteLine($"Copying {oldP} to {newPath}");
+            if (file.Name != "." && file.Name != "..")
+            {
+                if (file.IsDirectory)
+                {
+                    _sftpClient.CreateDirectory(newPath);
+                    CopyDirectory(newPath, oldP, showProgress);
+                }
+                else
+                {
+                    CopyFile(oldP, newPath, showProgress);
+                }
+            }
+            if (showProgress)
+            {
+                Program.ClearCurrentConsoleLine();
+                Console.CursorTop -= 1;
+            }
+            Program.ClearCurrentConsoleLine();
+        }
+    }
+
     public void Move(string oldPath, string newPath, bool copy, bool showProgress)
     {
+        newPath = Path.Combine(_sftpClient.WorkingDirectory, newPath);
+        newPath = newPath.Replace('\\', '/');
+        
         if (!Exists(oldPath))
         {
             Program.Error(8, "Remote path does not exist");
+            return;
+        }
+        if (Exists(newPath))
+        {
+            Program.Error(9, "New remote path already exists");
             return;
         }
         if (!copy)
@@ -190,23 +247,14 @@ public class SftpDriver
         }
         else
         {
-            var reader = _sftpClient.OpenRead(oldPath);
-            var writer = _sftpClient.OpenWrite(newPath);
-            var target = reader.Length;
-            var completed = 0;
-            while (target > completed)
+            Console.WriteLine($"Copying {oldPath} to {newPath}");
+            if (!IsDir(oldPath))
             {
-                byte[] buffer = new byte[1024];
-                var read = reader.Read(buffer);
-                completed += read;
-                writer.Write(buffer, 0, read);
-                if (showProgress) ProgressBar(completed, (int) target);
+                CopyFile(oldPath, newPath, showProgress);
+                if (showProgress) Program.ClearCurrentConsoleLine();
             }
-            if (showProgress)
-            {
-                Console.CursorLeft = 0;
-                Console.Write("\n");
-            }
+            else CopyDirectory(newPath, Path.Join(_sftpClient.WorkingDirectory, oldPath).Replace('\\', '/'), showProgress);
+            Program.ClearCurrentConsoleLine();
             Console.WriteLine($"Copied {oldPath} to {newPath}");
         }
     }
