@@ -736,6 +736,7 @@ public class Program {
 
     public static void Error(int err, String msg, bool forceExit = false)
     {
+        Console.CursorVisible = true;
         Console.WriteLine($"Error ({err}) : {msg}");
         if (HardError || forceExit)Environment.Exit(err);
     }

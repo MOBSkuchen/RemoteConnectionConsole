@@ -65,29 +65,30 @@ public class SftpDriver
         int position = 1;
         for (int i = 0; i < onechunk * progress; i++)
         {
-            Console.BackgroundColor = ConsoleColor.Green;
             Console.CursorLeft = position++;
-            Console.Write(" ");
+            Console.Write("=");
         }
+
+        Console.CursorLeft -= 1;
+        Console.Write(">");
 
         //draw unfilled part
         for (int i = position; i <= 31; i++)
         {
-            Console.BackgroundColor = ConsoleColor.Gray;
             Console.CursorLeft = position++;
             Console.Write(" ");
         }
 
         //draw totals
         Console.CursorLeft = 35;
-        Console.BackgroundColor = ConsoleColor.Black;
-        Console.Write(progress.ToString() + " of " + tot.ToString() + "    "); //blanks at the end remove any excess
+        Console.Write($"{FormatSize(progress)} of {FormatSize(tot)} {(progress * 100 / tot)}%   "); //blanks at the end remove any excess
     }
 
     private bool Exists(string remotePath) => _sftpClient.Exists(remotePath);
 
     public void Pull(string remotePath, string localPath, bool showProgress)
     {
+        if (showProgress) Console.CursorVisible = false;
         if (!Exists(remotePath))
         {
             Program.Error(8, "Remote path does not exist");
@@ -106,10 +107,12 @@ public class SftpDriver
             Console.Write("\n");
         }
         Console.WriteLine($"Pulled {remotePath} to {localPath}");
+        if (showProgress) Console.CursorVisible = true;
     }
     
     void UploadFile(string localPath, string remotePath, bool showProgress)
     {
+        if (showProgress) Console.CursorVisible = false;
         if (Exists(remotePath))
         {
             Console.WriteLine($"Skipping {localPath}, because it already exists");
@@ -129,6 +132,7 @@ public class SftpDriver
         Program.ClearCurrentConsoleLine();
         Console.CursorTop -= 1;
         Program.ClearCurrentConsoleLine();
+        if (showProgress) Console.CursorVisible = true;
     }
     
     void UploadDir(string localPath, string remotePath, bool showProgress)
@@ -161,6 +165,7 @@ public class SftpDriver
     
     public void Push(string localPath, string remotePath, bool showProgress)
     {
+        if (showProgress) Console.CursorVisible = false;
         if (!File.Exists(localPath) && !Directory.Exists(localPath))
         {
             Program.Error(8, "Local path does not exist");
@@ -174,11 +179,11 @@ public class SftpDriver
         else UploadFile(localPath, remotePath, showProgress);
         if (showProgress) Program.ClearCurrentConsoleLine();
         Console.WriteLine($"Pushed {localPath} to {remotePath}");
+        if (showProgress) Console.CursorVisible = true;
     }
 
     void CopyFile(string oldPath, string newPath, bool showProgress)
     {
-        Console.WriteLine(oldPath + " " + newPath);
         var reader = _sftpClient.OpenRead(oldPath);
         var writer = _sftpClient.OpenWrite(newPath);
         var target = reader.Length;
@@ -197,7 +202,6 @@ public class SftpDriver
     {
         string newPath;
         string oldP;
-        Console.WriteLine(oldPath);
         _sftpClient.CreateDirectory(newpath);
         foreach (SftpFile file in _sftpClient.ListDirectory(oldPath))
         {
@@ -227,6 +231,7 @@ public class SftpDriver
 
     public void Move(string oldPath, string newPath, bool copy, bool showProgress)
     {
+        if (showProgress) Console.CursorVisible = false;
         newPath = Path.Combine(_sftpClient.WorkingDirectory, newPath);
         newPath = newPath.Replace('\\', '/');
         
@@ -257,6 +262,7 @@ public class SftpDriver
             Program.ClearCurrentConsoleLine();
             Console.WriteLine($"Copied {oldPath} to {newPath}");
         }
+        if (showProgress) Console.CursorVisible = true;
     }
 
     public void List()
