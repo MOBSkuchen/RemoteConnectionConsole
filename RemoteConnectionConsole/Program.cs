@@ -7,7 +7,7 @@ namespace RemoteConnectionConsole;
 
 public static class CommandsHandler
 {
-    public const string VERSION = "2.0";
+    public const string VERSION = "2.3";
     
     public static void Open()
     {
